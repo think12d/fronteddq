@@ -3,11 +3,6 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "packageManager": "npm@10.9.0",
-  "engines": {
-    "node": "20.x",
-    "npm": "10.x"
-  },
   "scripts": {
     "dev:user": "vite --host 0.0.0.0",
     "dev:admin": "vite --mode admin --host 0.0.0.0",
