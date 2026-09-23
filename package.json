@@ -1,13 +1,16 @@
 {
-  "name": "ugcnet-jar-web",
+  "name": "ugcnet-jar-admin",
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "packageManager": "npm@10.9.0",
+  "engines": {
+    "node": "20.x",
+    "npm": "10.x"
+  },
   "scripts": {
-    "dev:user": "vite --host 0.0.0.0",
-    "dev:admin": "vite --mode admin --host 0.0.0.0",
-    "build:user": "npx --yes tsc -b && npx --yes vite build",
-    "build:admin": "npx --yes tsc -b && npx --yes vite build --mode admin",
+    "dev": "vite --host 0.0.0.0 --port 5174",
+    "build": "npx --yes tsc -b && npx --yes vite build",
     "preview": "vite preview"
   },
   "dependencies": {
