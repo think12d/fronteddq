@@ -4,12 +4,12 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "dev:user": "vite --host 0.0.0.0 --port 5173",
-    "dev:admin": "vite --mode admin --host 0.0.0.0 --port 5174",
-    "build": "tsc -b && vite build",
-    "preview": "vite preview"
-  },
+  "dev:user": "vite --host 0.0.0.0",
+  "dev:admin": "vite --mode admin --host 0.0.0.0",
+  "build:user": "tsc -b && vite build",
+  "build:admin": "tsc -b && vite build --mode admin",
+  "preview": "vite preview"
+},
   "dependencies": {
     "lucide-react": "^0.468.0",
     "react": "^18.3.1",
