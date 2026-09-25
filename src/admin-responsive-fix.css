@@ -390,29 +390,18 @@
 
 /* =========================================================================
    OVERVIEW, PAYMENTS, RECORDED VIDEOS — same treatment
-   =========================================================================
-   Live broadcasts (.admin-live-grid, .admin-live-card, the moderation
-   drawer) were already built with auto-fit grids and flex-wrap throughout,
-   so they hold up fine on phone/tablet/laptop and needed no changes here.
-   The three pages below had real, verifiable gaps.
    ========================================================================= */
 
 /* -------------------------------------------------------------------------
    9. Overview page
    ---------------------------------------------------------------------- */
 
-/* .material-manager (course materials + library) is a fixed two-column
-   grid (1.08fr / 0.92fr) with no responsive rule anywhere in styles.css —
-   it stays two columns and gets squeezed on tablet and phone. */
 @media (max-width: 959px) {
   .material-manager {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 
-/* .upload-stepper (the 4-step "select course → upload → …" tracker) and
-   .inline-builder-tight (2-column inline fields) are fixed-column grids
-   with no fallback, so they get cramped on narrow phones. */
 @media (max-width: 560px) {
   .upload-stepper {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -426,11 +415,6 @@
    10. Payments page
    ---------------------------------------------------------------------- */
 
-/* .payments-toolbar and .payments-search have NO CSS rule anywhere in
-   styles.css — they render as an unstyled input/select pair inside a
-   `justify-content: space-between; flex-wrap: nowrap` heading row
-   (.section-heading), which pushes them off-screen on phone/tablet
-   instead of shrinking or wrapping. */
 .payments-toolbar {
   display: flex;
   align-items: center;
@@ -449,8 +433,6 @@
 }
 
 @media (max-width: 767px) {
-  /* Scoped to the admin pages that pair a heading with a toolbar, so this
-     doesn't change the learner-facing site's section headings. */
   .admin-page .section-heading,
   .payments-page .section-heading {
     flex-wrap: wrap;
@@ -465,20 +447,7 @@
 /* -------------------------------------------------------------------------
    11. Recorded videos admin page
    ---------------------------------------------------------------------- */
-/* This page was built almost entirely with inline styles (style={{...}})
-   instead of styles.css, so there is nothing in the stylesheet to
-   override at smaller widths — the layout is the same fixed pixel grid
-   on a phone as on a monitor. Author-stylesheet rules marked !important
-   DO win over plain inline styles (only inline !important or JS re-render
-   would beat this), so that's how these are overridden here:
 
-   - .recorded-admin-toolbar is inline-styled as a 5-column grid
-     ("minmax(240px, 1.7fr) repeat(4, minmax(150px, 1fr))"), a minimum
-     width of roughly 900px. On any phone or portrait tablet this forces
-     horizontal overflow of the whole toolbar.
-   - .recorded-admin-card is inline-styled as a fixed 220px thumbnail
-     column + content column, leaving almost no room for text/buttons on
-     a phone-width screen. */
 @media (max-width: 900px) {
   .recorded-admin-toolbar {
     grid-template-columns: minmax(0, 1fr) !important;
@@ -502,17 +471,6 @@
 
 /* =========================================================================
    COURSE CREATE/EDIT FORM & BATCH SALES CONTROLS
-   =========================================================================
-   This is the biggest gap in the whole admin area: `.inline-builder` and
-   `.checkbox-field` are used all over the "Create and sell learning
-   batches" form (Price/Access days, the offer editor, Launch/Enrollment
-   dates, "Set how this batch is sold") and have **no CSS rule anywhere in
-   styles.css** — not even a plain "no responsive fallback", genuinely
-   zero styling. Only the very similar `.inline-builder-tight` exists.
-   Without a rule, paired fields fall back to normal document flow, so
-   they read as cramped, unevenly spaced label/input pairs on every
-   screen size — phone AND laptop, exactly as reported. This is the actual
-   fix, not just a breakpoint tweak.
    ========================================================================= */
 
 .inline-builder {
@@ -537,9 +495,6 @@
   }
 }
 
-/* .checkbox-field ("Enable offer pricing", "Feature this batch…") also
-   has no CSS at all — checkbox and label text render with no gap/
-   alignment control. */
 .checkbox-field {
   display: flex !important;
   align-items: center;
@@ -557,10 +512,6 @@
 
 /* =========================================================================
    USER ACCESS FILTER TOOLBAR
-   =========================================================================
-   .admin-access-toolbar (search + 3 filter dropdowns above the user list)
-   is a fixed 4-column grid with no responsive rule anywhere — cramped on
-   tablet, overflowing on phone.
    ========================================================================= */
 
 @media (max-width: 599px) {
@@ -577,13 +528,6 @@
 
 /* =========================================================================
    GENERAL ADMIN BUTTON / TOUCH-TARGET CLEANUP
-   =========================================================================
-   .button-small (used for every Edit/Delete/Preview/Assign action across
-   course rows, payment rows, recording cards and user rows) is only 34px
-   tall — below the ~44px comfortable minimum for a touch target. Bumped
-   up specifically within the admin area on phone/tablet, where these
-   buttons are tapped, not clicked. Also gives action rows a consistent
-   gap so buttons don't visually touch when they wrap.
    ========================================================================= */
 
 @media (max-width: 1023px) {
@@ -603,5 +547,207 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
+  }
+}
+
+/* =========================================================================
+   ROUND 3 — Payments quicklink card, module "Add file" rows, Live Class
+   Management buttons.
+   =========================================================================
+   Correction to the note above section 9: the earlier claim that live
+   broadcasts "were already built with auto-fit grids and flex-wrap
+   throughout... needed no changes" missed two real gaps, found now on a
+   closer pass through AdminLiveDashboard.tsx:
+     12. .admin-quicklink-card / .admin-quicklink-icon (the "Payments &
+         receipts" card on the Overview page) have ZERO CSS anywhere —
+         not unresponsive, genuinely unstyled, rendering as raw inline
+         link/icon/text. Only the wrapper (.admin-quicklink-row) had a
+         flex-wrap rule; the card itself never had a base style.
+     13. .directory-admin-line (module/topic row in the Materials
+         manager) is a plain flex row with no wrap. .directory-action-row
+         (the "Add file" / rename / delete buttons) has no flex-shrink:0
+         and no wrap rule, so on phone/tablet the module name next to it
+         squeezes the action row, crushing the "Add file" icon+text
+         together — that's the "not good with text" look reported.
+     14. .button-xs, used only by the mute/unmute button inside the Live
+         Class Management moderation drawer, has NO CSS rule anywhere —
+         it falls back to a bare unstyled <button>, next to fully styled
+         toggle checkboxes.
+     15. .admin-live-header (the "Live Class Management" title bar) uses
+         an <h2>, but the only mobile font-size override anywhere in this
+         file targets ".live-admin-dashboard h1" — a different element —
+         so the ~32px heading never shrinks on phones, and the header row
+         (title+paragraph vs. the "Refresh Roster" button) has no
+         flex-wrap, so it can crowd that button on narrow screens.
+   ========================================================================= */
+
+/* -------------------------------------------------------------------------
+   12. Payments & receipts quicklink card (Overview page) — was unstyled
+   ---------------------------------------------------------------------- */
+
+.admin-quicklink-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.admin-quicklink-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid rgba(19, 54, 79, 0.09);
+  border-radius: var(--radius-lg, 14px);
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 10px 22px rgba(17, 37, 48, 0.05);
+  text-decoration: none;
+  color: var(--text-primary);
+  transition: transform 120ms ease-out, box-shadow 120ms ease-out, border-color 120ms ease-out;
+}
+
+.admin-quicklink-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(68, 119, 216, 0.3);
+  box-shadow: 0 14px 28px rgba(68, 119, 216, 0.1);
+}
+
+.admin-quicklink-icon {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(14, 122, 141, 0.1);
+  color: #0e7a8d;
+}
+
+.admin-quicklink-card > span:not(.admin-quicklink-icon) {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.admin-quicklink-card b {
+  font-size: 0.95rem;
+}
+
+.admin-quicklink-card small {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-quicklink-card svg:last-child {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 599px) {
+  .admin-quicklink-card {
+    padding: 12px 14px;
+  }
+  .admin-quicklink-card small {
+    white-space: normal;
+  }
+}
+
+/* -------------------------------------------------------------------------
+   13. Materials manager — module/topic row so "Add file" etc. don't crush
+   ---------------------------------------------------------------------- */
+
+@media (max-width: 767px) {
+  .directory-admin-line {
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+
+  .directory-name-wrap {
+    flex-basis: 100%;
+  }
+
+  .directory-action-row {
+    flex-wrap: wrap;
+    flex-basis: 100%;
+    padding-left: 38px; /* align under the name, past the bullet icon */
+    box-sizing: border-box;
+  }
+
+  .directory-action-row .button-small {
+    min-height: 40px;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .directory-action-row {
+    flex-shrink: 0;
+  }
+}
+
+/* -------------------------------------------------------------------------
+   14. .button-xs — was completely unstyled (moderation mute/unmute button)
+   ---------------------------------------------------------------------- */
+
+.button-xs {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 30px;
+  padding: 5px 9px;
+  border: 1px solid rgba(19, 54, 79, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--text-primary);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.button-xs.button-cyan {
+  background: linear-gradient(135deg, rgba(14, 122, 141, 1), rgba(68, 119, 216, 1));
+  border-color: transparent;
+  color: #fff;
+}
+
+.button-xs.button-outline {
+  background: transparent;
+  border-color: var(--border-strong);
+}
+
+@media (max-width: 767px) {
+  .button-xs {
+    min-height: 36px;
+  }
+}
+
+/* -------------------------------------------------------------------------
+   15. Live Class Management header — h2 never shrank on phone, and the
+       title block vs. "Refresh Roster" button never wrapped.
+   ---------------------------------------------------------------------- */
+
+@media (max-width: 640px) {
+  .admin-live-header {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  .admin-live-header h2 {
+    font-size: clamp(1.5rem, 8vw, 1.9rem);
+  }
+  .admin-live-header > button,
+  .admin-live-header > .button {
+    flex-shrink: 0;
+  }
+}
+
+/* Live class card grid: guarantee a single column below ~340px so the
+   290px card min-width doesn't overflow the smallest phones. */
+@media (max-width: 359px) {
+  .admin-live-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
