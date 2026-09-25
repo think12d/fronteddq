@@ -387,3 +387,115 @@
     gap: 10px;
   }
 }
+
+/* =========================================================================
+   OVERVIEW, PAYMENTS, RECORDED VIDEOS — same treatment
+   =========================================================================
+   Live broadcasts (.admin-live-grid, .admin-live-card, the moderation
+   drawer) were already built with auto-fit grids and flex-wrap throughout,
+   so they hold up fine on phone/tablet/laptop and needed no changes here.
+   The three pages below had real, verifiable gaps.
+   ========================================================================= */
+
+/* -------------------------------------------------------------------------
+   9. Overview page
+   ---------------------------------------------------------------------- */
+
+/* .material-manager (course materials + library) is a fixed two-column
+   grid (1.08fr / 0.92fr) with no responsive rule anywhere in styles.css —
+   it stays two columns and gets squeezed on tablet and phone. */
+@media (max-width: 959px) {
+  .material-manager {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* .upload-stepper (the 4-step "select course → upload → …" tracker) and
+   .inline-builder-tight (2-column inline fields) are fixed-column grids
+   with no fallback, so they get cramped on narrow phones. */
+@media (max-width: 560px) {
+  .upload-stepper {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .inline-builder-tight {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* -------------------------------------------------------------------------
+   10. Payments page
+   ---------------------------------------------------------------------- */
+
+/* .payments-toolbar and .payments-search have NO CSS rule anywhere in
+   styles.css — they render as an unstyled input/select pair inside a
+   `justify-content: space-between; flex-wrap: nowrap` heading row
+   (.section-heading), which pushes them off-screen on phone/tablet
+   instead of shrinking or wrapping. */
+.payments-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.payments-search {
+  flex: 1 1 200px;
+  min-width: 0;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.75);
+}
+
+@media (max-width: 767px) {
+  /* Scoped to the admin pages that pair a heading with a toolbar, so this
+     doesn't change the learner-facing site's section headings. */
+  .admin-page .section-heading,
+  .payments-page .section-heading {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  .payments-toolbar,
+  .admin-page .section-heading > .tab-row {
+    width: 100%;
+  }
+}
+
+/* -------------------------------------------------------------------------
+   11. Recorded videos admin page
+   ---------------------------------------------------------------------- */
+/* This page was built almost entirely with inline styles (style={{...}})
+   instead of styles.css, so there is nothing in the stylesheet to
+   override at smaller widths — the layout is the same fixed pixel grid
+   on a phone as on a monitor. Author-stylesheet rules marked !important
+   DO win over plain inline styles (only inline !important or JS re-render
+   would beat this), so that's how these are overridden here:
+
+   - .recorded-admin-toolbar is inline-styled as a 5-column grid
+     ("minmax(240px, 1.7fr) repeat(4, minmax(150px, 1fr))"), a minimum
+     width of roughly 900px. On any phone or portrait tablet this forces
+     horizontal overflow of the whole toolbar.
+   - .recorded-admin-card is inline-styled as a fixed 220px thumbnail
+     column + content column, leaving almost no room for text/buttons on
+     a phone-width screen. */
+@media (max-width: 900px) {
+  .recorded-admin-toolbar {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 900px) {
+  .recorded-admin-card {
+    grid-template-columns: 160px minmax(0, 1fr) !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .recorded-admin-card {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  .recorded-admin-thumb {
+    height: 160px !important;
+  }
+}
