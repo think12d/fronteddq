@@ -318,3 +318,72 @@
     min-height: 44px;
   }
 }
+
+/* -------------------------------------------------------------------------
+   8. "CONTROL CENTER" / sidebar misalignment on tablet ("pad") widths
+   ---------------------------------------------------------------------- */
+/* styles.css:6383 has a leftover rule for 721–980px that collapses the
+   sidebar to a 220px ICON-ONLY rail (font-size: 0 on every label,
+   including .admin-sidebar-label = "CONTROL CENTER") and centers the
+   nav items. That rule was written for a persistent sidebar layout, but
+   the sidebar in this range is actually an off-canvas drawer opened by
+   the hamburger button — so instead of a compact rail, opening it shows
+   a narrow strip with invisible text and icons pushed out of place. This
+   is the misalignment on tablet/pad widths.
+
+   Below 1024px the drawer has room for the full label text (its own
+   width is capped at min(304px, 100vw-48px)), so we restore the normal,
+   fully-labelled, left-aligned layout for the whole drawer range and
+   drop the icon-only mode entirely. */
+@media (max-width: 1023px) {
+  .admin-sidebar {
+    width: min(304px, calc(100vw - 48px));
+    padding-inline: 16px;
+  }
+
+  .admin-sidebar .admin-brand span:last-child,
+  .admin-sidebar .admin-sidebar-label,
+  .admin-sidebar .admin-nav span,
+  .admin-sidebar .admin-user > span:last-child,
+  .admin-sidebar .admin-learner-link,
+  .admin-sidebar .admin-logout {
+    font-size: revert;
+  }
+
+  .admin-sidebar-label {
+    font-size: 0.7rem;
+  }
+
+  .admin-sidebar .admin-nav a,
+  .admin-sidebar .admin-learner-link,
+  .admin-sidebar .admin-logout {
+    justify-content: flex-start;
+    padding-inline: 12px;
+  }
+
+  .admin-sidebar .admin-user {
+    justify-content: flex-start;
+  }
+
+  /* Keep the brand row, label and nav items cleanly left-aligned and
+     evenly spaced regardless of exact width within the drawer. */
+  .admin-brand {
+    align-items: center;
+    gap: 10px;
+  }
+
+  .admin-sidebar-label {
+    margin-top: 4px;
+  }
+
+  .admin-nav {
+    display: grid;
+    gap: 6px;
+  }
+
+  .admin-nav a {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+}
