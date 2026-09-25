@@ -499,3 +499,109 @@
     height: 160px !important;
   }
 }
+
+/* =========================================================================
+   COURSE CREATE/EDIT FORM & BATCH SALES CONTROLS
+   =========================================================================
+   This is the biggest gap in the whole admin area: `.inline-builder` and
+   `.checkbox-field` are used all over the "Create and sell learning
+   batches" form (Price/Access days, the offer editor, Launch/Enrollment
+   dates, "Set how this batch is sold") and have **no CSS rule anywhere in
+   styles.css** — not even a plain "no responsive fallback", genuinely
+   zero styling. Only the very similar `.inline-builder-tight` exists.
+   Without a rule, paired fields fall back to normal document flow, so
+   they read as cramped, unevenly spaced label/input pairs on every
+   screen size — phone AND laptop, exactly as reported. This is the actual
+   fix, not just a breakpoint tweak.
+   ========================================================================= */
+
+.inline-builder {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+.inline-builder label {
+  display: grid;
+  gap: 6px;
+}
+
+.inline-builder label small {
+  color: var(--text-muted);
+}
+
+@media (max-width: 640px) {
+  .inline-builder {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* .checkbox-field ("Enable offer pricing", "Feature this batch…") also
+   has no CSS at all — checkbox and label text render with no gap/
+   alignment control. */
+.checkbox-field {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  font-weight: 600;
+}
+
+.checkbox-field input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  flex-shrink: 0;
+}
+
+/* =========================================================================
+   USER ACCESS FILTER TOOLBAR
+   =========================================================================
+   .admin-access-toolbar (search + 3 filter dropdowns above the user list)
+   is a fixed 4-column grid with no responsive rule anywhere — cramped on
+   tablet, overflowing on phone.
+   ========================================================================= */
+
+@media (max-width: 599px) {
+  .admin-access-toolbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 600px) and (max-width: 900px) {
+  .admin-access-toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* =========================================================================
+   GENERAL ADMIN BUTTON / TOUCH-TARGET CLEANUP
+   =========================================================================
+   .button-small (used for every Edit/Delete/Preview/Assign action across
+   course rows, payment rows, recording cards and user rows) is only 34px
+   tall — below the ~44px comfortable minimum for a touch target. Bumped
+   up specifically within the admin area on phone/tablet, where these
+   buttons are tapped, not clicked. Also gives action rows a consistent
+   gap so buttons don't visually touch when they wrap.
+   ========================================================================= */
+
+@media (max-width: 1023px) {
+  .admin-main .button-small {
+    min-height: 40px;
+    padding: 9px 14px;
+  }
+
+  .admin-course-actions,
+  .form-action-row,
+  .admin-access-actions,
+  .upload-actions-row {
+    gap: 10px;
+  }
+
+  .form-action-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+}
