@@ -113,6 +113,7 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
   const [tab, setTab] = useState<"all" | "assigned" | "unassigned">("all");
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "name">("newest");
+  const [pendingCourseByRecord, setPendingCourseByRecord] = useState<Record<number, string>>({});
   const [pendingClassByRecord, setPendingClassByRecord] = useState<Record<number, string>>({});
   const [page, setPage] = useState(1);
   const [notice, setNotice] = useState("");
@@ -465,7 +466,9 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
         <div className="rv2-list">
           {paginatedRecords.map((record, index) => {
             const assigned = isAssigned(record);
-            const pendingSelection = pendingClassByRecord[record.id] ?? "";
+            const pendingCourse = pendingCourseByRecord[record.id] ?? (record.suggested_course_id ? String(record.suggested_course_id) : "");
+            const pendingClass = pendingClassByRecord[record.id] ?? "";
+            const availableLiveClasses = liveClasses.filter((item) => String(item.course_id) === pendingCourse);
             return (
               <article
                 className={`rv2-card ${assigned ? "rv2-card-assigned" : "rv2-card-unassigned"}`}
@@ -516,41 +519,61 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
                   </div>
                 ) : (
                   <div className="rv2-assign-row">
-                    {record.suggested_course_title && (
-                      <div
-                        role="note"
-                        style={{
-                          display: "grid",
-                          gap: 4,
-                          marginBottom: 10,
-                          padding: "10px 12px",
-                          border: "1px solid var(--rv2-border)",
-                          borderRadius: 10,
-                        }}
-                      >
-                        <span className="rv2-info-label">Suggested Course</span>
-                        <strong>{record.suggested_course_title}</strong>
-                        <small>Filename suggestion only. Status remains Unassigned.</small>
-                      </div>
-                    )}
+                    <div
+                      role="note"
+                      style={{
+                        display: "grid",
+                        gap: 4,
+                        marginBottom: 10,
+                        padding: "10px 12px",
+                        border: "1px solid var(--rv2-border)",
+                        borderRadius: 10,
+                      }}
+                    >
+                      <span className="rv2-info-label">{record.suggested_course_title ? "Suggested Course" : "Course"}</span>
+                      {record.suggested_course_title ? (
+                        <>
+                          <strong>{record.suggested_course_title}</strong>
+                          <small>Filename suggestion only. Status remains Unassigned.</small>
+                        </>
+                      ) : (
+                        <small>No filename suggestion. Choose from all courses.</small>
+                      )}
+                    </div>
                     <select
-                      value={pendingSelection}
+                      aria-label={`Choose course for ${record.file_name}`}
+                      value={pendingCourse}
+                      onChange={(event) => {
+                        setPendingCourseByRecord((current) => ({ ...current, [record.id]: event.target.value }));
+                        setPendingClassByRecord((current) => ({ ...current, [record.id]: "" }));
+                      }}
+                    >
+                      <option value="">Select a course…</option>
+                      {courses.map((course) => (
+                        <option key={course.id} value={String(course.id)}>{course.title}</option>
+                      ))}
+                    </select>
+                    <select
+                      aria-label={`Choose Live Class for ${record.file_name}`}
+                      value={pendingClass}
+                      disabled={!pendingCourse}
                       onChange={(event) =>
                         setPendingClassByRecord((current) => ({ ...current, [record.id]: event.target.value }))
                       }
                     >
-                      <option value="">Select a live class…</option>
-                      {liveClasses.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.title} — {courseTitleById.get(item.course_id) || "Unknown course"}
-                        </option>
+                      <option value="">Select a Live Class…</option>
+                      {availableLiveClasses.map((item) => (
+                        <option key={item.id} value={String(item.id)}>{item.title}</option>
                       ))}
                     </select>
+                    {pendingCourse && availableLiveClasses.length === 0 && (
+                      <small>No Live Classes are available for this course.</small>
+                    )}
                     <button
                       className="rv2-btn rv2-btn-primary"
                       type="button"
-                      disabled={assigningId === record.id}
-                      onClick={() => void assignRecording(record.id, pendingSelection)}
+                      disabled={assigningId === record.id || !pendingClass}
+                      onClick={() => void assignRecording(record.id, pendingClass)}
                     >
                       {assigningId === record.id ? "Assigning…" : "Assign recording"}
                     </button>
