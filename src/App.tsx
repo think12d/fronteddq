@@ -1535,7 +1535,7 @@ function LearnerShell({
         <Link className="brand" to="/">
           <span className="brand-mark">
             <img
-              src="assets/logo.jpeg"
+              src="assets/logo.png"
               alt="JRF HUNTERS"
               style={{ width: 34, height: 34, borderRadius: 10 }}
               onError={(e) => {
@@ -3042,7 +3042,7 @@ function Login({ onLogin }: { onLogin: (user: User) => void }) {
         <Link className="brand" to="/">
           <span className="brand-mark">
             <img
-              src="assets/logo.jpeg"
+              src="assets/logo.png"
               alt="JRF HUNTERS"
               style={{ width: 34, height: 34, borderRadius: 10 }}
               onError={(event) => {
@@ -4638,7 +4638,7 @@ function FlagshipCard({ user, course }: { user: User | null; course: Course | nu
       </div>
       <div className="course-stamp">
         <img
-          src="assets/logo.jpeg"
+          src="assets/logo.png"
           alt="logo"
           style={{ width: 74 }}
           onError={(e) => (e.currentTarget.style.display = "none")}
@@ -8260,7 +8260,7 @@ function SiteFooter() {
           <Link className="brand" to="/">
             <span className="brand-mark">
               <img
-                src="assets/logo.jpeg"
+                src="assets/logo.png"
                 alt="JRF HUNTERS"
                 style={{ width: 34, height: 34, borderRadius: 10 }}
               />
