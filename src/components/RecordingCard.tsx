@@ -47,6 +47,10 @@ type AdminRecordedVideo = {
   duration_seconds?: number | null;
   live_class_id?: number | null;
   live_class_title?: string | null;
+  course_id?: number | null;
+  course_title?: string | null;
+  suggested_course_id?: number | null;
+  suggested_course_title?: string | null;
   status: string;
   matching_source?: string | null;
   match_confidence?: string | null;
@@ -59,7 +63,7 @@ type AdminRecordedVideo = {
 type RecordedVideosSummary = { total: number; assigned: number; unassigned: number };
 
 function isAssigned(record: AdminRecordedVideo): boolean {
-  return record.status === "ASSIGNED" || Boolean(record.live_class_id);
+  return record.status === "ASSIGNED" && Boolean(record.live_class_id);
 }
 
 function formatBytes(bytes?: number | null): string {
@@ -128,7 +132,34 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
         api<LiveClass[]>("/live-classes"),
         api<Course[]>("/admin/courses"),
       ]);
-      setRecords(items);
+      const uniqueItems = Array.from(
+        new Map(items.map((item) => [item.drive_file_id, item])).values(),
+      );
+      const suggestionResponse = uniqueItems.length
+        ? await api<{
+            suggestions: {
+              id: number;
+              course_id: number | null;
+              course_title: string | null;
+            }[];
+          }>("/admin/recorded-videos/course-suggestions", {
+            method: "POST",
+            body: JSON.stringify({
+              files: uniqueItems.slice(0, 500).map(({ id, file_name }) => ({ id, file_name })),
+            }),
+          }).catch(() => ({ suggestions: [] }))
+        : { suggestions: [] };
+      const suggestionsById = new Map(
+        suggestionResponse.suggestions.map((item) => [item.id, item]),
+      );
+      setRecords(uniqueItems.map((item) => {
+        const suggestion = suggestionsById.get(item.id);
+        return {
+          ...item,
+          suggested_course_id: suggestion?.course_id ?? null,
+          suggested_course_title: suggestion?.course_title ?? null,
+        };
+      }));
       setSummary(stats);
       setLiveClasses(classes);
       setCourses(allCourses);
@@ -181,7 +212,7 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
         tab === "all" || (tab === "assigned" ? isAssigned(record) : !isAssigned(record));
       const matchesSearch =
         !query ||
-        `${record.file_name} ${record.courseTitle} ${record.liveClassTitle}`.toLowerCase().includes(query);
+        `${record.file_name} ${record.courseTitle} ${record.suggested_course_title || ""} ${record.liveClassTitle}`.toLowerCase().includes(query);
       return matchesTab && matchesSearch;
     });
     return [...filtered].sort((left, right) => {
@@ -485,6 +516,23 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
                   </div>
                 ) : (
                   <div className="rv2-assign-row">
+                    {record.suggested_course_title && (
+                      <div
+                        role="note"
+                        style={{
+                          display: "grid",
+                          gap: 4,
+                          marginBottom: 10,
+                          padding: "10px 12px",
+                          border: "1px solid var(--rv2-border)",
+                          borderRadius: 10,
+                        }}
+                      >
+                        <span className="rv2-info-label">Suggested Course</span>
+                        <strong>{record.suggested_course_title}</strong>
+                        <small>Filename suggestion only. Status remains Unassigned.</small>
+                      </div>
+                    )}
                     <select
                       value={pendingSelection}
                       onChange={(event) =>
