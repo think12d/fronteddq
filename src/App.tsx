@@ -96,7 +96,7 @@ import type {
 import AdminLiveDashboard from "./components/AdminLiveDashboard";
 import LiveClassCard from "./components/LiveClassCard";
 import LiveClassRoomPanel from "./components/LiveClassRoomPanel";
-import RecordingCard from "./components/RecordingCard";
+import RecordingCard, { AdminRecordedVideosPage as RecordedVideosAdminPage } from "./components/RecordingCard";
 import ResourceMedia from "./components/ResourceMedia";
 import { NotificationProvider, useNotifications } from "./notifications";
 
@@ -538,7 +538,7 @@ function AppContent() {
         <Route path="/admin/user-access" element={<AdminUserAccessPage user={user} />} />
         <Route path="/admin/user-access/:userId" element={<AdminUserAccessDetailPage user={user} />} />
         <Route path="/admin/live" element={<UnifiedAdminLivePage user={user} />} />
-        <Route path="/admin/recorded-videos" element={<AdminRecordedVideosPage user={user} />} />
+               <Route path="/admin/recorded-videos" element={<RecordedVideosAdminPage user={user} />} />
       </Route>
       <Route path="*" element={<Navigate to="/admin/login" replace />} />
     </Routes>
