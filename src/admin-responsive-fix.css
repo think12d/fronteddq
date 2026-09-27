@@ -4708,3 +4708,258 @@
     text-align: left !important;
   }
 }
+ /* =========================================================
+    ADMIN ACCESS — COMPACT RESPONSIVE PAGINATION
+    ========================================================= */
+
+.admin-access-pagination {
+  width: 100% !important;
+  min-width: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  margin-top: 12px !important;
+  padding: 10px 2px !important;
+  box-sizing: border-box !important;
+  flex-wrap: wrap !important;
+}
+
+
+/* ---------------------------------------------------------
+   RESULT COUNT
+   --------------------------------------------------------- */
+
+.admin-pagination-info {
+  flex: 0 1 auto !important;
+  min-width: 0 !important;
+  color: #718078 !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  line-height: 1.4 !important;
+  white-space: nowrap !important;
+}
+
+.admin-pagination-info strong {
+  color: #183128 !important;
+  font-weight: 800 !important;
+}
+
+
+/* ---------------------------------------------------------
+   CONTROLS
+   --------------------------------------------------------- */
+
+.admin-pagination-controls {
+  flex: 0 0 auto !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 4px !important;
+  min-width: 0 !important;
+}
+
+
+/* Existing project button classes */
+
+.admin-pagination-controls .button {
+  flex: 0 0 auto !important;
+  min-width: 32px !important;
+  height: 32px !important;
+  padding: 0 9px !important;
+  border-radius: 8px !important;
+  font-size: 11px !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+}
+
+
+/* Previous / Next */
+
+.admin-pagination-controls .button-ghost {
+  min-width: auto !important;
+  padding: 0 11px !important;
+}
+
+
+/* Current page */
+
+.admin-pagination-controls .button-dark {
+  min-width: 32px !important;
+  padding: 0 9px !important;
+}
+
+
+/* Disabled */
+
+.admin-pagination-controls .button:disabled {
+  opacity: 0.42 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+}
+
+
+/* ---------------------------------------------------------
+   PAGE NUMBERS
+   If you have several page buttons
+   --------------------------------------------------------- */
+
+.admin-page-numbers {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 4px !important;
+  min-width: 0 !important;
+  flex-wrap: wrap !important;
+}
+
+.admin-page-number {
+  flex: 0 0 auto !important;
+  width: 32px !important;
+  min-width: 32px !important;
+  height: 32px !important;
+  padding: 0 !important;
+}
+
+
+/* ---------------------------------------------------------
+   DOTS
+   --------------------------------------------------------- */
+
+.admin-page-dots {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 16px !important;
+  height: 32px !important;
+  color: #8a9891 !important;
+  font-size: 11px !important;
+}
+
+
+/* ---------------------------------------------------------
+   OPTIONAL ROW COUNT SELECT
+   --------------------------------------------------------- */
+
+.admin-page-size {
+  flex: 0 0 auto !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  color: #718078 !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  white-space: nowrap !important;
+}
+
+.admin-page-size select {
+  width: 58px !important;
+  min-width: 58px !important;
+  height: 32px !important;
+  padding: 0 7px !important;
+  border: 1px solid #dce7e1 !important;
+  border-radius: 8px !important;
+  background: #ffffff !important;
+  color: #183128 !important;
+  font: inherit !important;
+  font-size: 11px !important;
+  font-weight: 750 !important;
+}
+
+
+/* =========================================================
+   TABLET
+   ========================================================= */
+
+@media (max-width: 760px) {
+
+  .admin-access-pagination {
+    justify-content: center !important;
+    gap: 10px 14px !important;
+  }
+
+  .admin-pagination-info {
+    flex: 1 1 100% !important;
+    text-align: center !important;
+  }
+
+  .admin-pagination-controls {
+    flex: 0 1 auto !important;
+  }
+
+  .admin-page-size {
+    flex: 0 0 auto !important;
+  }
+}
+
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 480px) {
+
+  .admin-access-pagination {
+    display: grid !important;
+    grid-template-columns: 1fr auto !important;
+    gap: 10px !important;
+    padding: 10px 0 !important;
+  }
+
+  .admin-pagination-info {
+    grid-column: 1 / -1 !important;
+    text-align: center !important;
+  }
+
+  .admin-pagination-controls {
+    min-width: 0 !important;
+    width: 100% !important;
+    justify-content: flex-start !important;
+  }
+
+  .admin-page-size {
+    justify-self: end !important;
+  }
+
+  .admin-pagination-controls .button {
+    height: 30px !important;
+    min-width: 30px !important;
+    padding: 0 8px !important;
+    font-size: 10px !important;
+  }
+
+  .admin-pagination-controls .button-ghost {
+    padding: 0 9px !important;
+  }
+
+  .admin-page-number {
+    width: 30px !important;
+    min-width: 30px !important;
+    height: 30px !important;
+  }
+}
+
+
+/* =========================================================
+   VERY SMALL PHONES
+   ========================================================= */
+
+@media (max-width: 360px) {
+
+  .admin-access-pagination {
+    grid-template-columns: 1fr !important;
+    justify-items: center !important;
+  }
+
+  .admin-pagination-controls {
+    justify-content: center !important;
+  }
+
+  .admin-page-size {
+    justify-self: center !important;
+  }
+
+  .admin-pagination-info {
+    font-size: 10px !important;
+  }
+}
