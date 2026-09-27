@@ -24,6 +24,9 @@
 /* ==========================================================================
    PART A — SHELL LAYOUT (drawer-based, no gap)
    ========================================================================== */
+/* ==========================================================================
+   PART A — SHELL LAYOUT (drawer-based, no gap)
+   ========================================================================== */
 
 .admin-shell {
   display: flex;
@@ -3370,4 +3373,63 @@
 .admin-main > main > .rv2-root {
   min-width: 0 !important;
   max-width: 100% !important;
+}
+/* ==========================================================================
+   FONT SIZE BUMP — admin area base = 14px
+   ========================================================================== */
+
+.admin-shell {
+  font-size: 14px !important;
+}
+
+/* Sidebar nav links */
+.admin-sidebar .admin-nav a {
+  font-size: 14px !important;
+}
+
+/* Sidebar brand text */
+.admin-sidebar .admin-brand strong {
+  font-size: 14px !important;
+}
+
+.admin-sidebar .admin-brand small {
+  font-size: 12px !important; /* secondary text stays slightly smaller for hierarchy */
+}
+
+/* Sidebar section label ("CONTROL CENTER") */
+.admin-sidebar .admin-sidebar-label {
+  font-size: 12px !important;
+}
+
+/* User name / role in sidebar footer */
+.admin-sidebar .admin-user b {
+  font-size: 14px !important;
+}
+
+.admin-sidebar .admin-user small {
+  font-size: 12px !important;
+}
+
+/* Learner link + logout button text */
+.admin-sidebar .admin-learner-link,
+.admin-sidebar .admin-logout {
+  font-size: 14px !important;
+}
+
+/* Topbar title/kicker */
+.admin-topbar-title {
+  font-size: 14px !important;
+}
+
+.admin-kicker {
+  font-size: 12px !important;
+}
+
+/* Keep the narrow-tablet icon-rail step's font-size:0 override from
+   fighting this — only applies if you're still using that variant */
+@media (min-width: 601px) and (max-width: 899px) {
+  .admin-sidebar .admin-learner-link,
+  .admin-sidebar .admin-logout {
+    font-size: 0 !important; /* icon-only mode intentionally hides text */
+  }
 }
