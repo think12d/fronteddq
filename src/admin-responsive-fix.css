@@ -30,10 +30,7 @@
 }
 
 
-.admin-main > main { 
-  width: calc(100% - 100px); 
-  margin-left: 100px; 
-}
+.admin-main > main { min-width: 0; max-width: 100%; width: 100%; }
 
 
 .admin-menu-button {
