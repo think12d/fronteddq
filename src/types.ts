@@ -19,11 +19,18 @@ export type QuestionLibraryFile = {
   modified_at?: string | null;
   is_question_file: boolean;
   is_answer_key: boolean;
+  locked?: boolean;
+  accessed?: boolean;
 };
 
 export type QuestionLibrary = {
   premium_required?: boolean;
   library_access?: boolean;
+  question_archive_access?: boolean;
+  free_papers_used?: number;
+  free_papers_remaining?: number;
+  free_papers_limit?: number;
+  price_paise?: number;
   folder_id: string;
   folder_url?: string;
   file_count: number;
@@ -59,6 +66,7 @@ export type Resource = {
   storage_provider: string;
   file_size?: number | null;
   duration_sec?: number | null;
+  sort_order?: number;
   updated_at?: string | null;
 };
 
