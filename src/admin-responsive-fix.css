@@ -4057,3 +4057,15 @@
     margin-top: 10px !important;
   }
 }
+.admin-user .avatar {
+  background-image: url("/assets/logo.png") !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  background-size: cover !important;
+
+  font-size: 0 !important;
+  color: transparent !important;
+  text-indent: -9999px !important;
+
+  overflow: hidden !important;
+}
