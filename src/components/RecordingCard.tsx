@@ -6,6 +6,7 @@ import {
   Clock3,
   Film,
   HardDrive,
+  LockKeyhole,
   Play,
   RefreshCw,
   Search,
@@ -14,7 +15,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import { api } from "../api";
+import { api, apiBlob } from "../api";
 import type { Course, LiveClass, User } from "../types";
 import { useNotifications } from "../notifications";
 
@@ -27,7 +28,7 @@ import { useNotifications } from "../notifications";
  *   GET   /admin/recorded-videos/summary
  *   POST  /admin/recorded-videos/sync
  *   PATCH /admin/recorded-videos/{id}/assign          body: { course_id, live_class_id? }
- *   POST  /library/recorded-videos/{drive_file_id}/drive-view
+ *   GET   /admin/recorded-videos/{id}/preview
  *   GET   /live-classes
  *   GET   /admin/courses
  *
@@ -123,6 +124,7 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
   const [assigningId, setAssigningId] = useState<number | null>(null);
   const [tab, setTab] = useState<"all" | "assigned" | "unassigned">("all");
   const [search, setSearch] = useState("");
+  const [courseFilter, setCourseFilter] = useState("");
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "name">("newest");
   const [pendingCourseByRecord, setPendingCourseByRecord] = useState<Record<number, string>>({});
   const [pendingClassByRecord, setPendingClassByRecord] = useState<Record<number, string>>({});
@@ -133,8 +135,9 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
   const [previewItem, setPreviewItem] = useState<AdminRecordedVideo | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
   const [previewBusy, setPreviewBusy] = useState(false);
+  const [securingDriveAccess, setSecuringDriveAccess] = useState(false);
   const uploadInputRef = useRef<HTMLInputElement>(null);
-  const pageSize = 8;
+  const pageSize = 10;
 
   const load = async () => {
     setLoading(true);
@@ -192,7 +195,7 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
 
   useEffect(() => {
     setPage(1);
-  }, [tab, search, sortBy]);
+  }, [tab, search, sortBy, courseFilter]);
 
   const courseTitleById = useMemo(() => {
     const map = new Map<number, string>();
@@ -230,7 +233,9 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
       const matchesSearch =
         !query ||
         `${record.file_name} ${record.courseTitle} ${record.suggested_course_title || ""} ${record.liveClassTitle}`.toLowerCase().includes(query);
-      return matchesTab && matchesSearch;
+      const recordCourseId = record.course_id ?? (record.live_class_id ? liveClassById.get(record.live_class_id)?.course_id : undefined);
+      const matchesCourse = !courseFilter || String(recordCourseId) === courseFilter;
+      return matchesTab && matchesSearch && matchesCourse;
     });
     return [...filtered].sort((left, right) => {
       if (sortBy === "name") return (left.file_name || "").localeCompare(right.file_name || "");
@@ -238,7 +243,7 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
       const rightDate = right.drive_created_at ? Date.parse(right.drive_created_at) : new Date(right.created_at || 0).getTime();
       return sortBy === "oldest" ? leftDate - rightDate : rightDate - leftDate;
     });
-  }, [enrichedRecords, search, sortBy, tab]);
+  }, [courseFilter, enrichedRecords, liveClassById, search, sortBy, tab]);
 
   const totalPages = Math.max(1, Math.ceil(visibleRecords.length / pageSize));
   const safePage = Math.min(page, totalPages);
@@ -269,6 +274,37 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
       notifications.showToast({ kind: "error", title: "Sync failed", message: messageText });
     } finally {
       setSyncing(false);
+    }
+  };
+
+  const lockDriveAccess = async () => {
+    const confirmed = window.confirm(
+      "Remove direct Google Drive sharing from files and folders in the recorded-videos folder? Inherited access from a parent folder or shared drive must be removed there.",
+    );
+    if (!confirmed) return;
+
+    setSecuringDriveAccess(true);
+    setError("");
+    setNotice("");
+    try {
+      const result = await api<{ scanned: number; revoked: number; inherited: number; failed: number }>(
+        "/admin/recorded-videos/lock-drive-access",
+        { method: "POST" },
+      );
+      const remaining = result.inherited + result.failed;
+      const message = `Checked ${result.scanned} Drive items and removed ${result.revoked} direct shares.${remaining ? ` ${result.inherited} inherited permissions and ${result.failed} failures still need attention in Google Drive.` : " No remaining permissions were reported."}`;
+      setNotice(message);
+      notifications.showToast({
+        kind: remaining ? "error" : "success",
+        title: remaining ? "Drive access needs review" : "Drive sharing locked",
+        message,
+      });
+    } catch (cause) {
+      const message = (cause as Error).message || "Unable to secure Drive sharing.";
+      setError(message);
+      notifications.showToast({ kind: "error", title: "Drive security action failed", message });
+    } finally {
+      setSecuringDriveAccess(false);
     }
   };
 
@@ -355,10 +391,8 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
     setPreviewUrl("");
     setPreviewItem(record);
     try {
-      const result = await api<{ url: string }>(`/library/recorded-videos/${record.drive_file_id}/drive-view`, {
-        method: "POST",
-      });
-      setPreviewUrl(result.url);
+      const media = await apiBlob(`/admin/recorded-videos/${record.id}/preview`);
+      setPreviewUrl(URL.createObjectURL(media));
     } catch (cause) {
       setError((cause as Error).message || "Unable to load the preview right now.");
       setPreviewItem(null);
@@ -366,6 +400,17 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
       setPreviewBusy(false);
     }
   };
+
+  const closePreview = () => {
+    setPreviewItem(null);
+    setPreviewUrl("");
+  };
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl.startsWith("blob:")) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
 
   const pageNumbers = Array.from({ length: totalPages }, (_, index) => index + 1);
 
@@ -413,6 +458,14 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
           <button className="rv2-btn rv2-btn-primary" type="button" onClick={() => void syncNow()} disabled={syncing}>
             <RefreshCw size={16} className={syncing ? "rv2-spin" : ""} />
             {syncing ? "Syncing…" : "Sync Google Drive"}
+          </button>
+          <button
+            className="rv2-btn rv2-btn-ghost"
+            type="button"
+            onClick={() => void lockDriveAccess()}
+            disabled={securingDriveAccess || syncing || uploading}
+          >
+            <LockKeyhole size={16} /> {securingDriveAccess ? "Securing Drive…" : "Lock Drive sharing"}
           </button>
         </div>
       </header>
@@ -469,6 +522,15 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
           <option value="newest">Newest first</option>
           <option value="oldest">Oldest first</option>
           <option value="name">Name A–Z</option>
+        </select>
+        <select
+          className="rv2-sort"
+          aria-label="Filter by course"
+          value={courseFilter}
+          onChange={(event) => setCourseFilter(event.target.value)}
+        >
+          <option value="">All courses</option>
+          {courses.map((course) => <option key={course.id} value={String(course.id)}>{course.title}</option>)}
         </select>
       </div>
 
@@ -660,9 +722,9 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
       )}
 
       {previewItem && (
-        <div className="rv2-modal-backdrop" onClick={() => setPreviewItem(null)}>
+        <div className="rv2-modal-backdrop" onClick={closePreview}>
           <div className="rv2-modal" onClick={(event) => event.stopPropagation()}>
-            <button className="rv2-modal-close" type="button" onClick={() => setPreviewItem(null)} aria-label="Close preview">
+            <button className="rv2-modal-close" type="button" onClick={closePreview} aria-label="Close preview">
               <X size={16} />
             </button>
             <h3>{previewItem.file_name}</h3>
@@ -711,6 +773,30 @@ export default function RecordingCard({ data }: { data: RecordingCardData }) {
   const [recordings, setRecordings] = useState<LearnerRecording[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [mediaUrls, setMediaUrls] = useState<Record<string, string>>({});
+  const [loadingMediaId, setLoadingMediaId] = useState<string | null>(null);
+  const [playbackError, setPlaybackError] = useState("");
+  const mediaUrlByIdRef = useRef<Record<string, string>>({});
+
+  useEffect(() => () => {
+    Object.values(mediaUrlByIdRef.current).forEach((url) => URL.revokeObjectURL(url));
+  }, []);
+
+  const loadRecording = async (recording: LearnerRecording) => {
+    if (mediaUrls[recording.id]) return;
+    setLoadingMediaId(recording.id);
+    setPlaybackError("");
+    try {
+      const media = await apiBlob(recording.play_url);
+      const url = URL.createObjectURL(media);
+      mediaUrlByIdRef.current[recording.id] = url;
+      setMediaUrls((current) => ({ ...current, [recording.id]: url }));
+    } catch (cause) {
+      setPlaybackError((cause as Error).message || "Unable to load this recording.");
+    } finally {
+      setLoadingMediaId(null);
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -760,21 +846,27 @@ export default function RecordingCard({ data }: { data: RecordingCardData }) {
         <div className="recording-card-media-list">
           {recordings.map((recording) => {
             const isAudio = isAudioRecording(recording.mime_type, recording.name);
+            const mediaUrl = mediaUrls[recording.id];
             return (
               <div key={`${recording.id}-${recording.play_url}`} className="recording-card-media-item">
                 <span>{recording.name}</span>
-                {isAudio ? (
-                  <audio controls preload="metadata" src={recording.play_url}>
+                {mediaUrl ? (isAudio ? (
+                  <audio controls preload="metadata" src={mediaUrl}>
                     Your browser does not support audio playback.
                   </audio>
                 ) : (
-                  <video controls playsInline preload="metadata" src={recording.play_url}>
+                  <video controls playsInline preload="metadata" src={mediaUrl}>
                     Your browser does not support video playback.
                   </video>
+                )) : (
+                  <button type="button" onClick={() => void loadRecording(recording)} disabled={loadingMediaId === recording.id}>
+                    {loadingMediaId === recording.id ? "Loading recording…" : "Play recording"}
+                  </button>
                 )}
               </div>
             );
           })}
+          {playbackError && <div className="recording-card-error" role="alert">{playbackError}</div>}
         </div>
       ) : (
         <div className="recording-card-error" role="status">
