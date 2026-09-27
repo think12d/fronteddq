@@ -6328,7 +6328,7 @@ textarea { min-height: 108px; }
 .admin-main .admin-page,
 .admin-main .admin-payments-page,
 .admin-main .payments-page {
-  width: min(1220px, calc(100% - 32px));
+  width:1px;
   max-width: 100%;
   min-width: 0;
   margin: 0 auto;
