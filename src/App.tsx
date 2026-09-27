@@ -1639,8 +1639,8 @@ function AdminShell({
       <aside className={`admin-sidebar ${sidebarOpen ? "is-open" : ""}`}>
         <Link className="admin-brand" to="/admin">
           <span className="admin-brand-mark">
-            <ShieldCheck size={18} />
-          </span>
+  <img src="/assets/logo.png" alt="JRF Hunters" />
+</span>
           <span>
             <strong>JRF HUNTERS</strong>
             <small>admin console</small>
@@ -3544,8 +3544,8 @@ function AdminLogin({ onLogin }: { onLogin: (user: User) => void }) {
         <div className="admin-auth-copy">
           <Link className="admin-brand admin-auth-brand" to="/admin/login">
             <span className="admin-brand-mark">
-              <ShieldCheck size={18} />
-            </span>
+  <img src="/assets/logo.png" alt="JRF Hunters" />
+</span>
             <span>
               <strong>JRF HUNTERS</strong>
               <small>admin console</small>
