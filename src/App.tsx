@@ -96,7 +96,7 @@ import type {
 import AdminLiveDashboard from "./components/AdminLiveDashboard";
 import LiveClassCard from "./components/LiveClassCard";
 import LiveClassRoomPanel from "./components/LiveClassRoomPanel";
-import RecordingCard, { AdminRecordedVideosPage as RecordedVideosAdminPage } from "./components/RecordedVideos";
+import RecordingCard, { AdminRecordedVideosPage as RecordedVideosAdminPage } from "./components/RecordingCard";
 import ResourceMedia from "./components/ResourceMedia";
 import { NotificationProvider, useNotifications } from "./notifications";
 
