@@ -46,8 +46,8 @@ type AdminRecordedVideo = {
   drive_modified_at?: string | null;
   duration_seconds?: number | null;
   live_class_id?: number | null;
-  live_class_title?: string | null;
   course_id?: number | null;
+  live_class_title?: string | null;
   course_title?: string | null;
   suggested_course_id?: number | null;
   suggested_course_title?: string | null;
@@ -63,7 +63,7 @@ type AdminRecordedVideo = {
 type RecordedVideosSummary = { total: number; assigned: number; unassigned: number };
 
 function isAssigned(record: AdminRecordedVideo): boolean {
-  return record.status === "ASSIGNED" && Boolean(record.live_class_id);
+  return record.status === "ASSIGNED" && Boolean(record.live_class_id || record.course_id);
 }
 
 function formatBytes(bytes?: number | null): string {
@@ -197,10 +197,14 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
   const enrichedRecords = useMemo(() => {
     return records.map((record) => {
       const liveClass = record.live_class_id ? liveClassById.get(record.live_class_id) || null : null;
-      const courseTitle = liveClass ? courseTitleById.get(liveClass.course_id) || "" : "";
+      const courseTitle = record.course_id
+        ? courseTitleById.get(record.course_id) || ""
+        : liveClass
+          ? courseTitleById.get(liveClass.course_id) || ""
+          : "";
       return {
         ...record,
-        liveClassTitle: record.live_class_title || liveClass?.title || "",
+        liveClassTitle: record.live_class_title || liveClass?.title || (record.course_id && !record.live_class_id ? "Prerecorded video" : ""),
         courseTitle,
       };
     });
@@ -256,10 +260,11 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
     }
   };
 
-  const assignRecording = async (recordId: number, liveClassId: string) => {
-    const selectedId = Number(liveClassId);
-    if (!selectedId) {
-      setError("Choose a live class before assigning this recording.");
+  const assignRecording = async (recordId: number, courseId: string, liveClassId: string) => {
+    const selectedCourseId = Number(courseId);
+    const selectedLiveClassId = liveClassId ? Number(liveClassId) : null;
+    if (!selectedCourseId) {
+      setError("Choose a course before assigning this recording.");
       return;
     }
     setAssigningId(recordId);
@@ -268,10 +273,13 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
     try {
       await api(`/admin/recorded-videos/${recordId}/assign`, {
         method: "PATCH",
-        body: JSON.stringify({ live_class_id: selectedId }),
+        body: JSON.stringify({ course_id: selectedCourseId, live_class_id: selectedLiveClassId }),
       });
-      setNotice("Recording assigned. Learners will see it under that live class.");
-      notifications.showToast({ kind: "success", title: "Recording assigned", message: "Linked to the selected live class." });
+      const assignmentMessage = selectedLiveClassId
+        ? "Linked to the selected live class."
+        : "Assigned as a prerecorded course video.";
+      setNotice(`Recording assigned. ${assignmentMessage}`);
+      notifications.showToast({ kind: "success", title: "Recording assigned", message: assignmentMessage });
       await load();
     } catch (cause) {
       const messageText = (cause as Error).message || "Unable to assign this recording.";
@@ -511,7 +519,7 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
                     </div>
                     <div>
                       <span className="rv2-info-label">Live class</span>
-                      <span className="rv2-info-value">{record.liveClassTitle || "—"}</span>
+                        <span className="rv2-info-value">{record.liveClassTitle || "—"}</span>
                     </div>
                     <button className="rv2-btn rv2-btn-ghost" type="button" onClick={() => void openPreview(record)}>
                       <Play size={14} /> Preview
@@ -553,27 +561,28 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
                         <option key={course.id} value={String(course.id)}>{course.title}</option>
                       ))}
                     </select>
-                    <select
-                      aria-label={`Choose Live Class for ${record.file_name}`}
-                      value={pendingClass}
-                      disabled={!pendingCourse}
-                      onChange={(event) =>
-                        setPendingClassByRecord((current) => ({ ...current, [record.id]: event.target.value }))
-                      }
-                    >
-                      <option value="">Select a Live Class…</option>
-                      {availableLiveClasses.map((item) => (
-                        <option key={item.id} value={String(item.id)}>{item.title}</option>
-                      ))}
-                    </select>
-                    {pendingCourse && availableLiveClasses.length === 0 && (
-                      <small>No Live Classes are available for this course.</small>
-                    )}
+                    {availableLiveClasses.length > 0 ? (
+                      <select
+                        aria-label={`Choose Live Class for ${record.file_name}`}
+                        value={pendingClass}
+                        disabled={!pendingCourse}
+                        onChange={(event) =>
+                          setPendingClassByRecord((current) => ({ ...current, [record.id]: event.target.value }))
+                        }
+                      >
+                        <option value="">Select a Live Class…</option>
+                        {availableLiveClasses.map((item) => (
+                          <option key={item.id} value={String(item.id)}>{item.title}</option>
+                        ))}
+                      </select>
+                    ) : pendingCourse ? (
+                      <div className="rv2-info-value" role="status">No Live Class — Prerecorded Video</div>
+                    ) : null}
                     <button
                       className="rv2-btn rv2-btn-primary"
                       type="button"
-                      disabled={assigningId === record.id || !pendingClass}
-                      onClick={() => void assignRecording(record.id, pendingClass)}
+                      disabled={assigningId === record.id || !pendingCourse || (availableLiveClasses.length > 0 && !pendingClass)}
+                      onClick={() => void assignRecording(record.id, pendingCourse, pendingClass)}
                     >
                       {assigningId === record.id ? "Assigning…" : "Assign recording"}
                     </button>
@@ -642,10 +651,12 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
 }
 
 type RecordingCardData = {
-  liveClassId: number;
+  liveClassId?: number;
+  courseId?: number;
+  hideWhenEmpty?: boolean;
   title: string;
   topic: string;
-  date: string;
+  date?: string;
   paymentUrl: string;
 };
 
@@ -653,7 +664,8 @@ type LearnerRecording = {
   id: string;
   name: string;
   mime_type: string;
-  live_class_id: number;
+  course_id: number;
+  live_class_id: number | null;
   meeting_name?: string;
   display_name?: string;
   recorded_at?: string | null;
@@ -677,12 +689,14 @@ export default function RecordingCard({ data }: { data: RecordingCardData }) {
           return;
         }
 
-        const matching = (library.items || []).filter(
-          (item) => item.live_class_id === data.liveClassId,
+        const matching = (library.items || []).filter((item) =>
+          data.liveClassId !== undefined
+            ? item.live_class_id === data.liveClassId
+            : item.live_class_id === null && item.course_id === data.courseId,
         );
 
         setRecordings(matching);
-        if (matching.length === 0) setError('Recording is not available yet.');
+        if (matching.length === 0 && !data.hideWhenEmpty) setError('Recording is not available yet.');
       })
       .catch((cause) => {
         if (active) setError((cause as Error).message || 'Unable to load this recording.');
@@ -693,7 +707,9 @@ export default function RecordingCard({ data }: { data: RecordingCardData }) {
     return () => {
       active = false;
     };
-  }, [data.title, data.topic, data.liveClassId]);
+  }, [data.title, data.topic, data.liveClassId, data.courseId, data.hideWhenEmpty]);
+
+  if (data.hideWhenEmpty && !loading && !error && recordings.length === 0) return null;
 
   return (
     <article className="recording-card">
@@ -701,7 +717,7 @@ export default function RecordingCard({ data }: { data: RecordingCardData }) {
         <span className="eyebrow">CLASS RECORDING</span>
         <h3>{data.title}</h3>
         <p>{data.topic}</p>
-        <small>{new Date(data.date).toLocaleDateString("en-IN")}</small>
+        {data.date && <small>{new Date(data.date).toLocaleDateString("en-IN")}</small>}
       </div>
       {loading ? (
         <p className="muted">Loading recording…</p>
