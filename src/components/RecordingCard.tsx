@@ -4,6 +4,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock3,
+  ExternalLink,
   Film,
   HardDrive,
   LockKeyhole,
@@ -776,6 +777,8 @@ export default function RecordingCard({ data }: { data: RecordingCardData }) {
   const [mediaUrls, setMediaUrls] = useState<Record<string, string>>({});
   const [loadingMediaId, setLoadingMediaId] = useState<string | null>(null);
   const [playbackError, setPlaybackError] = useState("");
+  const [driveAccessUrls, setDriveAccessUrls] = useState<Record<string, string>>({});
+  const [driveBusyId, setDriveBusyId] = useState<string | null>(null);
   const mediaUrlByIdRef = useRef<Record<string, string>>({});
 
   useEffect(() => () => {
@@ -795,6 +798,26 @@ export default function RecordingCard({ data }: { data: RecordingCardData }) {
       setPlaybackError((cause as Error).message || "Unable to load this recording.");
     } finally {
       setLoadingMediaId(null);
+    }
+  };
+
+  const openInDrive = async (recording: LearnerRecording) => {
+    const driveWindow = window.open("about:blank", "_blank");
+    if (driveWindow) driveWindow.opener = null;
+    setDriveBusyId(recording.id);
+    setPlaybackError("");
+    try {
+      const result = await api<{ url: string }>(
+        `/library/recorded-videos/${encodeURIComponent(recording.id)}/drive-view`,
+        { method: "POST" },
+      );
+      setDriveAccessUrls((current) => ({ ...current, [recording.id]: result.url }));
+      if (driveWindow) driveWindow.location.replace(result.url);
+    } catch (cause) {
+      driveWindow?.close();
+      setPlaybackError((cause as Error).message || "Unable to grant Drive access.");
+    } finally {
+      setDriveBusyId(null);
     }
   };
 
@@ -849,7 +872,23 @@ export default function RecordingCard({ data }: { data: RecordingCardData }) {
             const mediaUrl = mediaUrls[recording.id];
             return (
               <div key={`${recording.id}-${recording.play_url}`} className="recording-card-media-item">
-                <span>{recording.name}</span>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                  <span>{recording.name}</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <button
+                      type="button"
+                      onClick={() => void openInDrive(recording)}
+                      disabled={driveBusyId === recording.id}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 10px", border: "1px solid currentColor", borderRadius: 6, background: "transparent", cursor: driveBusyId === recording.id ? "wait" : "pointer" }}
+                    >
+                      <ExternalLink size={14} />
+                      {driveBusyId === recording.id ? "Granting access…" : "Open in Drive"}
+                    </button>
+                    {driveAccessUrls[recording.id] && !driveBusyId && (
+                      <a href={driveAccessUrls[recording.id]} target="_blank" rel="noopener noreferrer">Open again</a>
+                    )}
+                  </div>
+                </div>
                 {mediaUrl ? (isAudio ? (
                   <audio controls preload="metadata" src={mediaUrl}>
                     Your browser does not support audio playback.
