@@ -1579,7 +1579,7 @@ function LearnerShell({
                 onClick={() => setProfileOpen((value) => !value)}
                 title="Account menu"
               >
-                <span className="avatar">{user.full_name.slice(0, 1).toUpperCase()}</span>
+                <span className="avatar"></span>
                 <span>{user.full_name.split(" ")[0]}</span>
                 <ChevronDown size={14} />
               </button>
@@ -1672,7 +1672,7 @@ function AdminShell({
         <div className="admin-sidebar-bottom">
           <div className="admin-user">
             <span className="avatar">
-              {user.full_name.slice(0, 1).toUpperCase()}
+              
             </span>
             <span>
               <b>{user.full_name}</b>
