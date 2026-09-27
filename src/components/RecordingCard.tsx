@@ -54,7 +54,7 @@ import { useNotifications } from "../notifications";
 // "access_token" and an optional base URL from VITE_API_BASE_URL; change
 // both to whatever your app actually uses).
 // ============================================================================
-const API_BASE_URL = (import.meta as any)?.env?.VITE_API_BASE_URL ?? "";
+const API_BASE_URL = (import.meta as any)?.env?.VITE_API_BASE_URL ?? "https://api.jrf-hunters.in/api/v1";
 
 async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = typeof window !== "undefined" ? window.localStorage.getItem("access_token") : null;
