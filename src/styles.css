@@ -3059,7 +3059,7 @@ textarea { min-height: 110px; resize: vertical; }
   .site-footer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
-@media (max-width: 3000px) {
+@media (max-width: 1024px) {
   .topbar {
     grid-template-columns: auto 1fr auto;
     gap: 10px;
@@ -6248,7 +6248,7 @@ textarea { min-height: 108px; }
   .testimonial-row { grid-template-columns: 1fr; }
 }
 
-@media (max-width: 3000px) {
+@media (max-width: 1024px) {
   .library-launch-grid,
   .lower-grid { grid-template-columns: 1fr; }
 }
@@ -6260,7 +6260,7 @@ textarea { min-height: 108px; }
   .demo-video-frame { aspect-ratio: 16 / 9; }
 }
 
-@media (max-width: 3000px) {
+@media (max-width: 1024px) {
   .auth-screen { padding-inline: 12px; }
   .auth-topline { margin-bottom: 16px; }
   .auth-wrap { grid-template-columns: minmax(0, 1fr); width: 100%; gap: 16px; }
@@ -6365,7 +6365,7 @@ textarea { min-height: 108px; }
   .admin-topbar { gap: 10px; padding-inline: 16px; }
 }
 
-@media (max-width: 3000px) {
+@media (max-width: 1024px) {
   .admin-shell { display: block; width: 100%; }
   .admin-sidebar {
     position: fixed;
@@ -8885,7 +8885,7 @@ textarea { min-height: 108px; }
   }
 }
 
-@media (max-width: 3000px) {
+@media (max-width: 1024px) {
   .dashboard-page,
   .learning-page {
     width: min(100%, calc(100% - 16px));
@@ -9038,7 +9038,7 @@ textarea { min-height: 108px; }
   .admin-main > * { animation: none; }
 }
 
-@media (max-width: 3000px) {
+@media (max-width: 1024px) {
   .topbar,
   .admin-topbar { width: 100%; border-radius: 0; }
   .topbar { grid-template-columns: auto 1fr auto; }
