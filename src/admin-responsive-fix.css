@@ -1762,29 +1762,37 @@
 }
 /* =========================================================
    JRF HUNTERS — ADMIN SIDEBAR
-   Responsive: Desktop → Laptop → Tablet → Mobile
-   No HTML changes required
+   Real drawer using existing .is-open React state
+   Logo: /assets/logo.png
+   Responsive desktop / laptop / tablet / mobile
+   ========================================================= */
+
+
+/* =========================================================
+   SIDEBAR BASE
    ========================================================= */
 
 .admin-sidebar {
   position: fixed !important;
+
   top: 0 !important;
   left: 0 !important;
   bottom: 0 !important;
 
-  z-index: 1000 !important;
+  z-index: 1100 !important;
 
-  width: clamp(218px, 18vw, 268px) !important;
+  width: 250px !important;
   height: 100dvh !important;
 
   display: flex !important;
   flex-direction: column !important;
 
   box-sizing: border-box !important;
+
   min-width: 0 !important;
   min-height: 0 !important;
 
-  padding: 18px 12px !important;
+  padding: 20px 13px !important;
 
   overflow: hidden !important;
 
@@ -1799,14 +1807,16 @@
   border-right: 1px solid #e1ebe5 !important;
 
   box-shadow:
-    8px 0 30px rgba(20, 67, 43, 0.035),
+    8px 0 30px rgba(20, 67, 43, 0.045),
     inset -1px 0 0 rgba(255, 255, 255, 0.95) !important;
 
   color: #183c2b !important;
 
+  transform: translateX(0) !important;
+
   transition:
-    width 0.3s ease,
-    box-shadow 0.3s ease !important;
+    transform 0.32s cubic-bezier(.22, .61, .36, 1),
+    box-shadow 0.32s ease !important;
 }
 
 
@@ -1820,14 +1830,17 @@
 
   display: flex !important;
   align-items: center !important;
-  gap: 11px !important;
+
+  gap: 12px !important;
 
   padding: 8px 9px !important;
-  margin: 0 0 25px !important;
+
+  margin: 0 0 27px !important;
 
   box-sizing: border-box !important;
 
   color: #163c2a !important;
+
   text-decoration: none !important;
 
   border-radius: 14px !important;
@@ -1839,66 +1852,92 @@
 
 .admin-brand:hover {
   background: #f1f8f4 !important;
+
   transform: translateX(2px) !important;
 }
 
 
-/* Logo */
+/* =========================================================
+   REAL LOGO
+   ========================================================= */
 
 .admin-brand-mark {
-  flex: 0 0 38px !important;
+  flex: 0 0 43px !important;
 
-  width: 38px !important;
-  height: 38px !important;
+  width: 43px !important;
+  height: 43px !important;
 
   display: flex !important;
+
   align-items: center !important;
   justify-content: center !important;
 
-  border-radius: 11px !important;
+  padding: 5px !important;
 
-  background: #e8f4ed !important;
-  color: #17633d !important;
+  box-sizing: border-box !important;
 
-  border: 1px solid #d5e9dc !important;
+  border-radius: 12px !important;
+
+  background: #ffffff !important;
+
+  border: 1px solid #dcebe2 !important;
+
+  overflow: hidden !important;
 
   box-shadow:
-    0 5px 14px rgba(24, 99, 61, 0.08) !important;
+    0 5px 15px rgba(24, 99, 61, 0.08) !important;
 
   transition:
     transform 0.3s ease,
-    background 0.3s ease !important;
+    box-shadow 0.3s ease !important;
+}
+
+.admin-brand-mark img {
+  display: block !important;
+
+  width: 100% !important;
+  height: 100% !important;
+
+  max-width: 100% !important;
+  max-height: 100% !important;
+
+  object-fit: contain !important;
+  object-position: center !important;
+
+  border-radius: 8px !important;
 }
 
 .admin-brand:hover .admin-brand-mark {
-  transform: rotate(-4deg) scale(1.05) !important;
-  background: #dff0e6 !important;
-}
+  transform: scale(1.045) !important;
 
-.admin-brand-mark svg {
-  width: 18px !important;
-  height: 18px !important;
+  box-shadow:
+    0 7px 18px rgba(24, 99, 61, 0.12) !important;
 }
 
 
-/* Brand text */
+/* =========================================================
+   BRAND TEXT
+   ========================================================= */
 
 .admin-brand > span:last-child {
   min-width: 0 !important;
 
   display: flex !important;
   flex-direction: column !important;
-  gap: 2px !important;
+
+  gap: 3px !important;
 }
 
 .admin-brand strong {
   display: block !important;
 
-  font-size: 13px !important;
+  font-size: 14px !important;
+
   line-height: 1.1 !important;
 
   font-weight: 850 !important;
-  letter-spacing: 0.07em !important;
+
+  letter-spacing: 0.065em !important;
 
   color: #173d2b !important;
 
@@ -1909,9 +1948,11 @@
   display: block !important;
 
   font-size: 10px !important;
+
   line-height: 1.2 !important;
 
   font-weight: 600 !important;
+
   letter-spacing: 0.04em !important;
 
   color: #789084 !important;
@@ -1925,12 +1966,14 @@
    ========================================================= */
 
 .admin-sidebar-label {
-  margin: 0 9px 9px !important;
+  margin: 0 10px 10px !important;
 
-  font-size: 9px !important;
+  font-size: 10px !important;
+
   line-height: 1.2 !important;
 
   font-weight: 800 !important;
+
   letter-spacing: 0.14em !important;
 
   color: #8a9b92 !important;
@@ -1945,11 +1988,14 @@
 
 .admin-nav {
   width: 100% !important;
+
   min-width: 0 !important;
 
   display: flex !important;
+
   flex-direction: column !important;
-  gap: 4px !important;
+
+  gap: 5px !important;
 
   box-sizing: border-box !important;
 }
@@ -1958,24 +2004,29 @@
   position: relative !important;
 
   width: 100% !important;
+
   min-width: 0 !important;
-  min-height: 42px !important;
+
+  min-height: 46px !important;
 
   display: flex !important;
+
   align-items: center !important;
 
-  gap: 11px !important;
+  gap: 12px !important;
 
-  padding: 0 11px !important;
+  padding: 0 12px !important;
 
   box-sizing: border-box !important;
 
   border-radius: 11px !important;
 
   color: #63776c !important;
+
   text-decoration: none !important;
 
-  font-size: 12px !important;
+  font-size: 13px !important;
+
   font-weight: 650 !important;
 
   white-space: nowrap !important;
@@ -1988,10 +2039,11 @@
 }
 
 .admin-nav a svg {
-  flex: 0 0 16px !important;
+  flex: 0 0 18px !important;
 
-  width: 16px !important;
-  height: 16px !important;
+  width: 18px !important;
+
+  height: 18px !important;
 
   stroke-width: 1.9 !important;
 
@@ -2006,11 +2058,13 @@
   min-width: 0 !important;
 
   overflow: hidden !important;
+
   text-overflow: ellipsis !important;
 }
 
 .admin-nav a:hover {
   color: #174d32 !important;
+
   background: #f0f7f3 !important;
 
   transform: translateX(2px) !important;
@@ -2018,11 +2072,14 @@
 
 .admin-nav a:hover svg {
   color: #21804c !important;
+
   transform: scale(1.08) !important;
 }
 
 
-/* Active */
+/* =========================================================
+   ACTIVE NAV
+   ========================================================= */
 
 .admin-nav a.active {
   color: #145c38 !important;
@@ -2035,7 +2092,7 @@
     ) !important;
 
   box-shadow:
-    inset 0 0 0 1px #d7ebde !important,
+    inset 0 0 0 1px #d7ebde,
     0 5px 15px rgba(26, 103, 60, 0.06) !important;
 
   font-weight: 750 !important;
@@ -2045,8 +2102,11 @@
   content: "" !important;
 
   position: absolute !important;
+
   left: 0 !important;
+
   top: 8px !important;
+
   bottom: 8px !important;
 
   width: 3px !important;
@@ -2058,6 +2118,7 @@
 
 .admin-nav a.active svg {
   color: #21804c !important;
+
   stroke-width: 2.2 !important;
 }
 
@@ -2068,13 +2129,17 @@
 
 .admin-sidebar-bottom {
   width: 100% !important;
+
   min-width: 0 !important;
 
   margin-top: auto !important;
-  padding-top: 14px !important;
+
+  padding-top: 15px !important;
 
   display: flex !important;
+
   flex-direction: column !important;
+
   gap: 7px !important;
 
   box-sizing: border-box !important;
@@ -2084,43 +2149,52 @@
 
 
 /* =========================================================
-   ADMIN USER
+   USER
    ========================================================= */
 
 .admin-user {
   width: 100% !important;
+
   min-width: 0 !important;
 
   display: flex !important;
-  align-items: center !important;
-  gap: 9px !important;
 
-  padding: 7px 7px !important;
+  align-items: center !important;
+
+  gap: 10px !important;
+
+  padding: 8px !important;
 
   box-sizing: border-box !important;
 
   border-radius: 11px !important;
 
   background: #f7faf8 !important;
+
   border: 1px solid #edf2ee !important;
 }
 
 .admin-user .avatar {
-  flex: 0 0 32px !important;
+  flex: 0 0 34px !important;
 
-  width: 32px !important;
-  height: 32px !important;
+  width: 34px !important;
+
+  height: 34px !important;
 
   display: flex !important;
+
   align-items: center !important;
+
   justify-content: center !important;
 
   border-radius: 10px !important;
 
   background: #dcefe4 !important;
+
   color: #17623c !important;
 
   font-size: 12px !important;
+
   font-weight: 850 !important;
 
   border: 1px solid #cee5d7 !important;
@@ -2130,7 +2204,9 @@
   min-width: 0 !important;
 
   display: flex !important;
+
   flex-direction: column !important;
+
   gap: 2px !important;
 }
 
@@ -2138,9 +2214,11 @@
   display: block !important;
 
   overflow: hidden !important;
+
   text-overflow: ellipsis !important;
 
-  font-size: 11px !important;
+  font-size: 12px !important;
+
   line-height: 1.2 !important;
 
   font-weight: 750 !important;
@@ -2153,7 +2231,8 @@
 .admin-user small {
   display: block !important;
 
-  font-size: 9px !important;
+  font-size: 10px !important;
+
   line-height: 1.2 !important;
 
   color: #87988f !important;
@@ -2163,28 +2242,33 @@
 
 
 /* =========================================================
-   LEARNER LINK + LOGOUT
+   LEARNER / LOGOUT
    ========================================================= */
 
 .admin-learner-link,
 .admin-logout {
   width: 100% !important;
+
   min-width: 0 !important;
-  min-height: 37px !important;
+
+  min-height: 40px !important;
 
   display: flex !important;
+
   align-items: center !important;
 
   gap: 9px !important;
 
-  padding: 0 10px !important;
+  padding: 0 11px !important;
 
   box-sizing: border-box !important;
 
   border-radius: 9px !important;
 
   font-family: inherit !important;
-  font-size: 11px !important;
+
+  font-size: 12px !important;
+
   font-weight: 650 !important;
 
   text-decoration: none !important;
@@ -2199,12 +2283,15 @@
 
 .admin-learner-link {
   color: #597267 !important;
+
   background: transparent !important;
 }
 
 .admin-learner-link:hover {
   color: #17613c !important;
+
   background: #eef7f1 !important;
+
   transform: translateX(2px) !important;
 }
 
@@ -2212,6 +2299,7 @@
   appearance: none !important;
 
   color: #7b716f !important;
+
   background: #faf9f8 !important;
 
   border: 1px solid #eee9e7 !important;
@@ -2219,8 +2307,11 @@
 
 .admin-logout:hover {
   color: #a3473e !important;
+
   background: #fff5f3 !important;
+
   border-color: #f0d9d5 !important;
+
   transform: translateX(2px) !important;
 }
 
@@ -2228,420 +2319,260 @@
 .admin-logout svg {
   flex: 0 0 auto !important;
 
-  width: 14px !important;
-  height: 14px !important;
+  width: 15px !important;
+
+  height: 15px !important;
 }
 
 
 /* =========================================================
-   LARGE DESKTOP
+   DRAWER STATE
+   Your React already has:
+   className={`admin-sidebar ${sidebarOpen ? "is-open" : ""}`}
    ========================================================= */
 
-@media screen and (width >= 1400px) {
-
-  .admin-sidebar {
-    width: 268px !important;
-    padding: 20px 14px !important;
-  }
-
-  .admin-nav a {
-    min-height: 44px !important;
-    font-size: 12.5px !important;
-  }
-
-  .admin-brand {
-    margin-bottom: 27px !important;
-  }
+.admin-sidebar.is-open {
+  transform: translateX(0) !important;
 }
 
 
 /* =========================================================
-   NORMAL LAPTOP
-   1100px – 1399px
-   KEEP FULL SIDEBAR
+   LAPTOP / TABLET
    ========================================================= */
 
-@media screen and (1100px <= width < 1400px) {
+@media screen and (width < 1200px) {
 
   .admin-sidebar {
-    width: 230px !important;
-    padding: 17px 10px !important;
+    width: 250px !important;
+
+    transform: translateX(-105%) !important;
+
+    box-shadow:
+      14px 0 40px rgba(20, 67, 43, 0.13) !important;
+  }
+
+  .admin-sidebar.is-open {
+    transform: translateX(0) !important;
   }
 
   .admin-brand {
-    gap: 9px !important;
-    padding-left: 7px !important;
-    padding-right: 7px !important;
-    margin-bottom: 22px !important;
+    margin-bottom: 28px !important;
   }
 
   .admin-brand-mark {
-    flex-basis: 36px !important;
-    width: 36px !important;
-    height: 36px !important;
-  }
+    width: 42px !important;
+    height: 42px !important;
 
-  .admin-brand strong {
-    font-size: 12px !important;
-  }
-
-  .admin-brand small {
-    font-size: 9px !important;
-  }
-
-  .admin-nav {
-    gap: 3px !important;
+    flex-basis: 42px !important;
   }
 
   .admin-nav a {
-    min-height: 40px !important;
-    padding: 0 9px !important;
-    gap: 10px !important;
-    font-size: 11.5px !important;
-  }
+    min-height: 47px !important;
 
-  .admin-sidebar-label {
-    margin-left: 8px !important;
-    margin-right: 8px !important;
-  }
-
-  .admin-user {
-    padding: 6px !important;
-  }
-
-  .admin-user .avatar {
-    width: 30px !important;
-    height: 30px !important;
-    flex-basis: 30px !important;
+    font-size: 13px !important;
   }
 }
 
 
 /* =========================================================
    SMALL LAPTOP
-   900px – 1099px
-   STILL FULL SIDEBAR
    ========================================================= */
 
-@media screen and (900px <= width < 1100px) {
+@media screen and (900px <= width < 1200px) {
 
   .admin-sidebar {
-    width: 215px !important;
-    padding: 15px 9px !important;
-  }
-
-  .admin-brand {
-    margin-bottom: 20px !important;
-    gap: 8px !important;
-    padding-left: 6px !important;
-    padding-right: 6px !important;
-  }
-
-  .admin-brand-mark {
-    width: 34px !important;
-    height: 34px !important;
-    flex-basis: 34px !important;
-  }
-
-  .admin-brand-mark svg {
-    width: 16px !important;
-    height: 16px !important;
+    width: 255px !important;
   }
 
   .admin-brand strong {
-    font-size: 11px !important;
-    letter-spacing: 0.055em !important;
+    font-size: 14px !important;
   }
 
   .admin-brand small {
-    font-size: 8.5px !important;
+    font-size: 10px !important;
   }
 
   .admin-sidebar-label {
-    font-size: 8px !important;
-    margin-left: 7px !important;
-    margin-bottom: 7px !important;
-  }
-
-  .admin-nav {
-    gap: 2px !important;
-  }
-
-  .admin-nav a {
-    min-height: 38px !important;
-    padding: 0 8px !important;
-    gap: 9px !important;
-    font-size: 10.5px !important;
-  }
-
-  .admin-nav a svg {
-    width: 15px !important;
-    height: 15px !important;
-  }
-
-  .admin-user {
-    gap: 7px !important;
-  }
-
-  .admin-user .avatar {
-    width: 28px !important;
-    height: 28px !important;
-    flex-basis: 28px !important;
-    font-size: 11px !important;
-  }
-
-  .admin-user b {
     font-size: 10px !important;
   }
 
-  .admin-user small {
-    font-size: 8px !important;
-  }
-
-  .admin-learner-link,
-  .admin-logout {
-    min-height: 34px !important;
-    font-size: 10px !important;
-  }
-}
-
-
-/* =========================================================
-   TABLET
-   600px – 899px
-   COMPACT ICON SIDEBAR
-   ========================================================= */
-
-@media screen and (600px <= width < 900px) {
-
-  .admin-sidebar {
-    width: 72px !important;
-
-    padding: 14px 8px !important;
-
-    align-items: center !important;
-  }
-
-  .admin-brand {
-    width: 46px !important;
-    height: 46px !important;
-
-    justify-content: center !important;
-
-    padding: 0 !important;
-    margin: 0 0 24px !important;
-  }
-
-  .admin-brand-mark {
-    width: 40px !important;
-    height: 40px !important;
-    flex-basis: 40px !important;
-  }
-
-  .admin-brand > span:last-child,
-  .admin-sidebar-label,
-  .admin-nav a span,
-  .admin-user > span:last-child,
-  .admin-learner-link,
-  .admin-logout {
-    display: none !important;
-  }
-
-  .admin-nav {
-    align-items: center !important;
-    gap: 6px !important;
-  }
-
   .admin-nav a {
-    width: 48px !important;
-    height: 46px !important;
-    min-height: 46px !important;
+    min-height: 47px !important;
 
-    justify-content: center !important;
+    padding: 0 13px !important;
 
-    padding: 0 !important;
-
-    border-radius: 12px !important;
+    font-size: 13.5px !important;
   }
 
   .admin-nav a svg {
     width: 18px !important;
     height: 18px !important;
   }
+}
 
-  .admin-nav a.active::before {
-    left: 0 !important;
-    top: 11px !important;
-    bottom: 11px !important;
+
+/* =========================================================
+   TABLET
+   ========================================================= */
+
+@media screen and (600px <= width < 900px) {
+
+  .admin-sidebar {
+    width: min(290px, 82vw) !important;
+
+    padding: 19px 14px !important;
   }
 
-  .admin-sidebar-bottom {
-    align-items: center !important;
-
-    width: 100% !important;
-
-    padding-top: 12px !important;
+  .admin-brand {
+    margin-bottom: 30px !important;
   }
 
-  .admin-user {
-    width: 46px !important;
-    height: 46px !important;
+  .admin-brand-mark {
+    width: 44px !important;
+    height: 44px !important;
 
-    justify-content: center !important;
-
-    padding: 0 !important;
+    flex-basis: 44px !important;
   }
 
-  .admin-user .avatar {
-    width: 32px !important;
-    height: 32px !important;
-    flex-basis: 32px !important;
+  .admin-brand strong {
+    font-size: 14px !important;
+  }
+
+  .admin-nav {
+    gap: 6px !important;
+  }
+
+  .admin-nav a {
+    min-height: 49px !important;
+
+    font-size: 14px !important;
+
+    gap: 13px !important;
+  }
+
+  .admin-nav a svg {
+    width: 19px !important;
+    height: 19px !important;
+  }
+
+  .admin-learner-link,
+  .admin-logout {
+    min-height: 42px !important;
+
+    font-size: 12.5px !important;
   }
 }
 
 
 /* =========================================================
    MOBILE
-   <= 599px
-   BOTTOM NAVIGATION
    ========================================================= */
 
 @media screen and (width < 600px) {
 
   .admin-sidebar {
-    top: auto !important;
-    right: 0 !important;
-    bottom: 0 !important;
-    left: 0 !important;
+    width: min(310px, 86vw) !important;
 
-    width: 100% !important;
-    height: auto !important;
+    height: 100dvh !important;
 
-    min-height: 64px !important;
+    padding: 18px 13px !important;
 
-    padding:
-      7px
-      max(8px, env(safe-area-inset-right))
-      calc(7px + env(safe-area-inset-bottom))
-      max(8px, env(safe-area-inset-left)) !important;
+    transform: translateX(-105%) !important;
 
-    flex-direction: row !important;
-    align-items: center !important;
-    justify-content: center !important;
-
-    border-right: 0 !important;
-    border-top: 1px solid #dfe9e3 !important;
+    border-right: 1px solid #dce9e1 !important;
 
     box-shadow:
-      0 -8px 28px rgba(20, 67, 43, 0.08) !important;
-
-    overflow: visible !important;
+      16px 0 45px rgba(12, 50, 31, 0.18) !important;
   }
 
-  .admin-brand,
-  .admin-sidebar-label,
-  .admin-sidebar-bottom {
-    display: none !important;
+  .admin-sidebar.is-open {
+    transform: translateX(0) !important;
+  }
+
+  .admin-brand {
+    margin-bottom: 30px !important;
+  }
+
+  .admin-brand-mark {
+    width: 44px !important;
+    height: 44px !important;
+
+    flex-basis: 44px !important;
+  }
+
+  .admin-brand strong {
+    font-size: 14px !important;
+  }
+
+  .admin-brand small {
+    font-size: 10px !important;
+  }
+
+  .admin-sidebar-label {
+    font-size: 10px !important;
   }
 
   .admin-nav {
-    width: 100% !important;
-
-    flex-direction: row !important;
-    align-items: center !important;
-    justify-content: space-around !important;
-
-    gap: 3px !important;
+    gap: 6px !important;
   }
 
   .admin-nav a {
-    flex: 1 1 0 !important;
-
-    width: auto !important;
-    max-width: 72px !important;
-
     min-height: 50px !important;
 
-    flex-direction: column !important;
-    justify-content: center !important;
+    padding: 0 13px !important;
 
-    gap: 3px !important;
+    font-size: 14px !important;
 
-    padding: 5px 2px !important;
-
-    border-radius: 10px !important;
-
-    font-size: 8px !important;
-    font-weight: 700 !important;
+    gap: 13px !important;
   }
 
   .admin-nav a svg {
-    width: 17px !important;
-    height: 17px !important;
+    width: 19px !important;
+    height: 19px !important;
   }
 
-  .admin-nav a span {
-    display: block !important;
-
-    max-width: 100% !important;
-
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    white-space: nowrap !important;
+  .admin-user {
+    padding: 9px !important;
   }
 
-  .admin-nav a.active::before {
-    top: auto !important;
-    right: 16px !important;
-    bottom: 2px !important;
-    left: 16px !important;
+  .admin-user .avatar {
+    width: 36px !important;
+    height: 36px !important;
 
-    width: auto !important;
-    height: 3px !important;
+    flex-basis: 36px !important;
+  }
 
-    border-radius: 4px 4px 0 0 !important;
+  .admin-user b {
+    font-size: 12px !important;
+  }
+
+  .admin-user small {
+    font-size: 10px !important;
+  }
+
+  .admin-learner-link,
+  .admin-logout {
+    min-height: 43px !important;
+
+    font-size: 12.5px !important;
   }
 }
 
 
 /* =========================================================
-   VERY SMALL PHONES
+   VERY SMALL MOBILE
    ========================================================= */
 
 @media screen and (width < 380px) {
 
   .admin-sidebar {
-    min-height: 60px !important;
-
-    padding-top: 5px !important;
-    padding-bottom: calc(5px + env(safe-area-inset-bottom)) !important;
+    width: 88vw !important;
   }
 
   .admin-nav a {
     min-height: 48px !important;
 
-    font-size: 7.5px !important;
-  }
-
-  .admin-nav a svg {
-    width: 16px !important;
-    height: 16px !important;
-  }
-}
-
-
-/* =========================================================
-   LANDSCAPE PHONES
-   ========================================================= */
-
-@media screen and (width < 900px) and (orientation: landscape) {
-
-  .admin-sidebar {
-    min-height: 58px !important;
-  }
-
-  .admin-nav a {
-    min-height: 46px !important;
+    font-size: 13.5px !important;
   }
 }
 
@@ -2661,17 +2592,4 @@
   .admin-logout {
     transition: none !important;
   }
-}
-.admin-layout {
-  display: grid !important;
-  grid-template-columns: minmax(215px, 268px) minmax(0, 1fr) !important;
-  min-height: 100dvh !important;
-  width: 100% !important;
-  box-sizing: border-box !important;
-}
-
-.admin-main {
-  min-width: 0 !important;
-  width: 100% !important;
-  box-sizing: border-box !important;
 }
