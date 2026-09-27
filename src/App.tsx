@@ -17,6 +17,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   Clock3,
   Download,
   Eye,
@@ -7554,6 +7555,7 @@ function QuestionBankPage({ user }: { user: User | null }) {
     count: number;
   } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [checkoutBusy, setCheckoutBusy] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -7586,6 +7588,21 @@ function QuestionBankPage({ user }: { user: User | null }) {
           );
       })
       .finally(() => setLoading(false));
+  };
+  const startArchiveCheckout = () => {
+    setCheckoutBusy(true);
+    setError("");
+    void startPremiumCheckout(
+      () => {
+        load();
+        setCheckoutBusy(false);
+      },
+      (message) => {
+        setCheckoutBusy(false);
+        setError(message);
+      },
+      { product: "question_archive_unlimited_access" },
+    );
   };
   const fileTypeOptions = useMemo(
     () =>
@@ -7757,8 +7774,6 @@ function QuestionBankPage({ user }: { user: User | null }) {
       )}
       {loading ? (
         <div className="empty-state">Loading the question archive…</div>
-      ) : library?.premium_required ? (
-        <PremiumPaywall access={access} feature="library" onPaid={load} />
       ) : !library?.files.length ? (
         <div className="empty-state">
           <FileText size={25} />
@@ -7770,6 +7785,36 @@ function QuestionBankPage({ user }: { user: User | null }) {
         </div>
       ) : (
         <>
+          <div className="notice premium-paywall" role="status">
+            <b>
+              {library.question_archive_access || library.library_access
+                ? "Unlimited archive access is active"
+                : `${library.free_papers_remaining ?? 0} free papers remaining`}
+            </b>
+            <span>
+              {library.question_archive_access || library.library_access
+                ? "All question papers, downloads, and Drive views are unlocked."
+                : library.free_papers_remaining
+                  ? "Choose any papers to preview, download, or open in Drive. Each distinct paper uses one free opening."
+                  : "Your 3 free papers are used. Unlock unlimited archive access for ₹399."}
+            </span>
+            {!library.question_archive_access &&
+              !library.library_access &&
+              !library.free_papers_remaining && (
+                <button
+                  className="button button-lime button-small"
+                  type="button"
+                  disabled={checkoutBusy || !access?.razorpay_configured && !access?.mock_mode}
+                  onClick={startArchiveCheckout}
+                >
+                  {checkoutBusy
+                    ? "Opening payment…"
+                    : access?.mock_mode
+                      ? "Complete archive payment"
+                      : `Unlock archive · ${access?.currency || "INR"} ${((library.price_paise || 39900) / 100).toLocaleString("en-IN")}`}
+                </button>
+              )}
+          </div>
           <div className="archive-toolbar">
             <label className="archive-search">
               <span className="archive-search-icon">
@@ -7894,11 +7939,24 @@ function QuestionBankPage({ user }: { user: User | null }) {
                                 </div>
                               </div>
                               <div className="archive-file-actions">
+                                {file.locked && (
+                                  <button
+                                    className="button button-small button-outline"
+                                    type="button"
+                                    disabled={checkoutBusy || Boolean(library.free_papers_remaining)}
+                                    onClick={startArchiveCheckout}
+                                  >
+                                    <LockKeyhole size={12} />
+                                    {library.free_papers_remaining
+                                      ? "Use a free paper first"
+                                      : "Unlock · ₹399"}
+                                  </button>
+                                )}
                                 {file.is_question_file && (
                                   <button
                                     className="button button-small"
                                     type="button"
-                                    disabled={previewLoading}
+                                    disabled={previewLoading || file.locked}
                                     onClick={() => void openPreview(file)}
                                   >
                                     {preview?.file.id === file.id
@@ -7911,6 +7969,7 @@ function QuestionBankPage({ user }: { user: User | null }) {
                                 <button
                                   className="button button-small button-lime"
                                   type="button"
+                                  disabled={file.locked}
                                   onClick={() => void downloadQuestionFile(file)}
                                 >
                                   Download <Download size={12} />
@@ -7918,6 +7977,7 @@ function QuestionBankPage({ user }: { user: User | null }) {
                                 <button
                                   className="button button-small button-outline"
                                   type="button"
+                                  disabled={file.locked}
                                   onClick={() => void openQuestionInDrive(file)}
                                 >
                                   Open in Drive <ExternalLink size={12} />
@@ -8009,7 +8069,7 @@ function RecordedVideoLibraryPage({ user }: { user: User | null }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortBy, setSortBy] = useState<"newest" | "oldest" | "alpha">("newest");
+  const [sortBy, setSortBy] = useState<"manual" | "newest" | "oldest" | "alpha">("manual");
 
   const stats = useMemo(() => {
     const items = library?.items ?? [];
@@ -8045,6 +8105,7 @@ function RecordedVideoLibraryPage({ user }: { user: User | null }) {
         })
       : items;
 
+    if (sortBy === "manual") return filtered;
     return [...filtered].sort((a, b) => {
       if (sortBy === "alpha") {
         return (a.display_name || a.name).localeCompare(b.display_name || b.name);
@@ -8179,6 +8240,7 @@ function RecordedVideoLibraryPage({ user }: { user: User | null }) {
             <label className="recordings-sort">
               <span>Sort</span>
               <select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)}>
+                <option value="manual">Course order</option>
                 <option value="newest">Newest first</option>
                 <option value="oldest">Oldest first</option>
                 <option value="alpha">A–Z</option>
@@ -9400,6 +9462,7 @@ function Admin({ user }: { user: User | null }) {
   const [directoryTypeFilter, setDirectoryTypeFilter] = useState("all");
   const [directoryResourcePages, setDirectoryResourcePages] = useState<Record<number, number>>({});
   const [directoryResourcePageSizes, setDirectoryResourcePageSizes] = useState<Record<number, number>>({});
+  const [orderingTopicId, setOrderingTopicId] = useState<number | null>(null);
   const [broadcastTitle, setBroadcastTitle] = useState("");
   const [broadcastMessage, setBroadcastMessage] = useState("");
   const [broadcastAudience, setBroadcastAudience] = useState<"all" | "student" | "admin">("all");
@@ -9430,7 +9493,9 @@ function Admin({ user }: { user: User | null }) {
       for (const resource of resources) {
         if (resource?.id != null) deduped.set(resource.id, resource);
       }
-      return Array.from(deduped.values());
+      return Array.from(deduped.values()).sort(
+        (left, right) => (left.sort_order ?? 0) - (right.sort_order ?? 0) || left.id - right.id,
+      );
     };
 
     const normalizeTopics = (topics: Course["modules"][number]["topics"] = []) => {
@@ -10201,6 +10266,33 @@ function Admin({ user }: { user: User | null }) {
     } catch (cause) {
       setMessage((cause as Error).message);
       adminError("File move failed", cause, "Unable to move the file.");
+    }
+  };
+  const reorderTopicResources = async (
+    topicId: number,
+    resources: Topic["resources"],
+    index: number,
+    direction: -1 | 1,
+  ) => {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= resources.length || orderingTopicId !== null) return;
+    const reordered = [...resources];
+    [reordered[index], reordered[targetIndex]] = [reordered[targetIndex], reordered[index]];
+    setOrderingTopicId(topicId);
+    setMessage("");
+    try {
+      await api(`/courses/topics/${topicId}/resources/order`, {
+        method: "PUT",
+        body: JSON.stringify({ resource_ids: reordered.map((resource) => resource.id) }),
+      });
+      await refresh();
+      setMessage("File order saved. Learners will see the same order.");
+      adminSuccess("File order saved", "The topic order is now visible to learners.");
+    } catch (cause) {
+      setMessage((cause as Error).message || "Could not save the file order.");
+      adminError("File reorder failed", cause, "Unable to save the new topic order.");
+    } finally {
+      setOrderingTopicId(null);
     }
   };
   const deleteResource = async (id: number) => {
@@ -11133,6 +11225,7 @@ function Admin({ user }: { user: User | null }) {
                             {visibleTopicResources.map((resource) => (
                               <div className="material-row" key={resource.id}>
                                 {(() => {
+                                  const resourceIndex = topicResources.findIndex((item) => item.id === resource.id);
                                   const filename = resource.original_filename || resource.title || "Unnamed file";
                                   const extension = filename.split(".").pop()?.toUpperCase() || resource.resource_type.toUpperCase() || "FILE";
                                   const fileType = extension.length <= 5 ? extension : resource.resource_type.toUpperCase();
@@ -11144,10 +11237,30 @@ function Admin({ user }: { user: User | null }) {
                                 <div className="directory-file-meta">
                                   <strong title={filename}>{filename}</strong>
                                   <small>
-                                    {resource.title && resource.title !== resource.original_filename ? `${resource.title} · ` : ""}{module.title} / {topic.title}
+                                    #{resource.sort_order ?? resourceIndex + 1} · {resource.title && resource.title !== resource.original_filename ? `${resource.title} · ` : ""}{module.title} / {topic.title}
                                   </small>
                                 </div>
                                 <div className="resource-actions">
+                                  <button
+                                    className="button-link"
+                                    type="button"
+                                    title="Move file up"
+                                    aria-label={`Move ${filename} up`}
+                                    disabled={resourceIndex <= 0 || orderingTopicId === topic.id}
+                                    onClick={() => void reorderTopicResources(topic.id, topicResources, resourceIndex, -1)}
+                                  >
+                                    <ChevronUp size={14} />
+                                  </button>
+                                  <button
+                                    className="button-link"
+                                    type="button"
+                                    title="Move file down"
+                                    aria-label={`Move ${filename} down`}
+                                    disabled={resourceIndex >= topicResources.length - 1 || orderingTopicId === topic.id}
+                                    onClick={() => void reorderTopicResources(topic.id, topicResources, resourceIndex, 1)}
+                                  >
+                                    <ChevronDown size={14} />
+                                  </button>
                                   <button
                                     className="button-link"
                                     type="button"
