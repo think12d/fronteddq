@@ -14,27 +14,76 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import { api } from "../api";
 import type { Course, LiveClass, User } from "../types";
 import { useNotifications } from "../notifications";
 
 /**
- * Drop-in module for the Admin "Recorded Videos" screen.
+ * Recorded Videos feature — admin management screen + learner-facing card.
  *
- * Talks to the SAME existing endpoints your app already calls — nothing
- * about the Drive sync, matching engine, or data model changes here:
+ * Self-contained: no "../api" helper dependency. Talks directly to the SAME
+ * existing endpoints your app already exposes — nothing about the Drive
+ * sync, matching engine, or data model changes here:
  *   GET   /admin/recorded-videos
  *   GET   /admin/recorded-videos/summary
  *   POST  /admin/recorded-videos/sync
- *   PATCH /admin/recorded-videos/{id}/assign          body: { live_class_id }
+ *   PATCH /admin/recorded-videos/{id}/assign          body: { course_id, live_class_id }
  *   POST  /library/recorded-videos/{drive_file_id}/drive-view
  *   GET   /live-classes
  *   GET   /admin/courses
+ *   GET   /library/recorded-videos                     (learner-facing)
  *
- * Usage (in App.tsx):
- *   import AdminRecordedVideosPage from "./components/AdminRecordedVideosPage";
+ * ----------------------------------------------------------------------
+ * ADD THIS ROUTE to your router (e.g. App.tsx) — this file does not
+ * register routes itself, since only your app knows its router setup:
+ *
+ *   import { AdminRecordedVideosPage } from "./components/RecordedVideos";
+ *   import RecordingCard from "./components/RecordedVideos";
+ *
+ *   // inside your <Routes> ... </Routes>:
  *   <Route path="/admin/recorded-videos" element={<AdminRecordedVideosPage user={user} />} />
+ *
+ * `RecordingCard` isn't routed to directly — it's rendered inline wherever
+ * a course/live-class page shows its recording (e.g. inside a course or
+ * live-class detail route you already have).
+ * ----------------------------------------------------------------------
  */
+
+// ============================================================================
+// FETCH HELPER (replaces the old "../api" import — adjust to match your
+// auth/storage setup: this reads a bearer token from localStorage under
+// "access_token" and an optional base URL from VITE_API_BASE_URL; change
+// both to whatever your app actually uses).
+// ============================================================================
+const API_BASE_URL = (import.meta as any)?.env?.VITE_API_BASE_URL ?? "";
+
+async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const token = typeof window !== "undefined" ? window.localStorage.getItem("access_token") : null;
+  const isFormData = typeof FormData !== "undefined" && init.body instanceof FormData;
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...init,
+    headers: {
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(init.headers || {}),
+    },
+  });
+  if (!response.ok) {
+    let message = `Request failed (${response.status})`;
+    try {
+      const data = await response.json();
+      message = data?.detail || data?.message || message;
+    } catch {
+      // response body wasn't JSON — keep the generic message
+    }
+    throw new Error(message);
+  }
+  if (response.status === 204) return undefined as T;
+  return (await response.json()) as T;
+}
+
+// ============================================================================
+// ADMIN PAGE
+// ============================================================================
 
 type AdminRecordedVideo = {
   id: number;
@@ -64,6 +113,17 @@ type RecordedVideosSummary = { total: number; assigned: number; unassigned: numb
 
 function isAssigned(record: AdminRecordedVideo): boolean {
   return record.status === "ASSIGNED" && Boolean(record.live_class_id || record.course_id);
+}
+
+// A recording plays back as audio only when its mime type or file extension
+// says so — everything else (webm/mp4) uses the video element. Reused by
+// both the admin preview modal and the learner-facing player so the two
+// never disagree about which tag to render.
+function isAudioRecording(record: { mime_type?: string | null; file_name?: string | null }): boolean {
+  const mime = (record.mime_type || "").toLowerCase();
+  if (mime.startsWith("audio/")) return true;
+  if (mime.startsWith("video/")) return false;
+  return /\.mp3$/i.test(record.file_name || "");
 }
 
 function formatBytes(bytes?: number | null): string {
@@ -129,16 +189,16 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
     setLoading(true);
     try {
       const [items, stats, classes, allCourses] = await Promise.all([
-        api<AdminRecordedVideo[]>("/admin/recorded-videos"),
-        api<RecordedVideosSummary>("/admin/recorded-videos/summary"),
-        api<LiveClass[]>("/live-classes"),
-        api<Course[]>("/admin/courses"),
+        apiRequest<AdminRecordedVideo[]>("/admin/recorded-videos"),
+        apiRequest<RecordedVideosSummary>("/admin/recorded-videos/summary"),
+        apiRequest<LiveClass[]>("/live-classes"),
+        apiRequest<Course[]>("/admin/courses"),
       ]);
       const uniqueItems = Array.from(
         new Map(items.map((item) => [item.drive_file_id, item])).values(),
       );
       const suggestionResponse = uniqueItems.length
-        ? await api<{
+        ? await apiRequest<{
             suggestions: {
               id: number;
               course_id: number | null;
@@ -241,7 +301,7 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
     setError("");
     setNotice("");
     try {
-      const result = await api<{ checked: number; assigned: number; unassigned: number; message: string }>(
+      const result = await apiRequest<{ checked: number; assigned: number; unassigned: number; message: string }>(
         "/admin/recorded-videos/sync",
         { method: "POST" },
       );
@@ -272,7 +332,7 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
     setError("");
     setNotice("");
     try {
-      await api(`/admin/recorded-videos/${recordId}/assign`, {
+      await apiRequest(`/admin/recorded-videos/${recordId}/assign`, {
         method: "PATCH",
         body: JSON.stringify({ course_id: selectedCourseId, live_class_id: selectedLiveClassId }),
       });
@@ -318,7 +378,7 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
     try {
       const form = new FormData();
       form.append("file", file);
-      const result = await api<AdminRecordedVideo>("/admin/recorded-videos/upload", {
+      const result = await apiRequest<AdminRecordedVideo>("/admin/recorded-videos/upload", {
         method: "POST",
         body: form,
       });
@@ -326,7 +386,7 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
       notifications.showToast({
         kind: "success",
         title: "Recording uploaded",
-        message: "The recording is ready for Live Class assignment.",
+        message: "The recording is ready for course/live class assignment.",
       });
       await load();
     } catch (cause) {
@@ -344,7 +404,7 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
     setPreviewUrl("");
     setPreviewItem(record);
     try {
-      const result = await api<{ url: string }>(`/library/recorded-videos/${record.drive_file_id}/drive-view`, {
+      const result = await apiRequest<{ url: string }>(`/library/recorded-videos/${record.drive_file_id}/drive-view`, {
         method: "POST",
       });
       setPreviewUrl(result.url);
@@ -377,8 +437,10 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
       <header className="rv2-header">
         <div>
           <span className="rv2-eyebrow">Recorded Videos</span>
-          <h1>Live class recordings</h1>
-          <p className="rv2-subtitle">Recordings from Google Drive, matched to live classes automatically.</p>
+          <h1>Recordings</h1>
+          <p className="rv2-subtitle">
+            Live class recordings matched automatically from Google Drive, plus prerecorded course videos assigned by hand.
+          </p>
         </div>
         <div className="rv2-header-actions">
           <input
@@ -565,7 +627,7 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
                       {record.suggested_course_title ? (
                         <>
                           <strong>{record.suggested_course_title}</strong>
-                          <small>Filename suggestion only. Status remains Unassigned.</small>
+                          <small>Filename suggestion only — confirm and click Assign to apply it.</small>
                         </>
                       ) : (
                         <small>No filename suggestion. Choose from all courses.</small>
@@ -669,7 +731,13 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
             </button>
             <h3>{previewItem.file_name}</h3>
             {previewUrl ? (
-              <video src={previewUrl} controls playsInline autoPlay />
+              isAudioRecording(previewItem) ? (
+                <audio src={previewUrl} controls autoPlay style={{ width: "100%" }}>
+                  Your browser does not support audio playback.
+                </audio>
+              ) : (
+                <video src={previewUrl} controls playsInline autoPlay />
+              )
             ) : previewBusy ? (
               <div className="rv2-modal-loading">
                 <RefreshCw size={18} className="rv2-spin" />
@@ -682,6 +750,10 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
     </div>
   );
 }
+
+// ============================================================================
+// LEARNER-FACING CARD
+// ============================================================================
 
 type RecordingCardData = {
   liveClassId?: number;
@@ -698,7 +770,7 @@ type LearnerRecording = {
   name: string;
   mime_type: string;
   course_id: number;
-  live_class_id: number | null;
+  live_class_id?: number | null;
   meeting_name?: string;
   display_name?: string;
   recorded_at?: string | null;
@@ -714,7 +786,7 @@ export default function RecordingCard({ data }: { data: RecordingCardData }) {
     let active = true;
     setLoading(true);
     setError("");
-    api<{ items: LearnerRecording[]; premium_required?: boolean }>('/library/recorded-videos')
+    apiRequest<{ items: LearnerRecording[]; premium_required?: boolean }>('/library/recorded-videos')
       .then((library) => {
         if (!active) return;
         if (library.premium_required) {
@@ -722,10 +794,13 @@ export default function RecordingCard({ data }: { data: RecordingCardData }) {
           return;
         }
 
+        // Live class recordings are matched by live_class_id only (never by
+        // title — same-titled live classes must not collide). Prerecorded
+        // course videos have no live_class_id and are matched by course_id.
         const matching = (library.items || []).filter((item) =>
           data.liveClassId !== undefined
             ? item.live_class_id === data.liveClassId
-            : item.live_class_id === null && item.course_id === data.courseId,
+            : (item.live_class_id === null || item.live_class_id === undefined) && item.course_id === data.courseId,
         );
 
         setRecordings(matching);
@@ -757,8 +832,7 @@ export default function RecordingCard({ data }: { data: RecordingCardData }) {
       ) : recordings.length ? (
         <div className="recording-card-media-list">
           {recordings.map((recording) => {
-            const mediaType = (recording.mime_type || "video/mp4").toLowerCase();
-            const isAudio = mediaType.startsWith("audio/");
+            const isAudio = isAudioRecording({ mime_type: recording.mime_type, file_name: recording.name });
             return (
               <div key={`${recording.id}-${recording.play_url}`} className="recording-card-media-item">
                 <span>{recording.name}</span>
@@ -786,6 +860,10 @@ export default function RecordingCard({ data }: { data: RecordingCardData }) {
     </article>
   );
 }
+
+// ============================================================================
+// SHARED STYLES (admin page only — RecordingCard uses your existing CSS)
+// ============================================================================
 
 const RV2_STYLES = `
 .rv2-root {
@@ -1033,6 +1111,7 @@ const RV2_STYLES = `
 }
 .rv2-modal h3 { margin: 0 0 12px; font-size: 15px; padding-right: 30px; }
 .rv2-modal video { width: 100%; max-height: 65vh; border-radius: 12px; background: #0b0c14; display: block; }
+.rv2-modal audio { display: block; margin-top: 4px; }
 .rv2-modal-close {
   position: absolute; top: 14px; right: 14px;
   border: none; background: var(--rv2-bg); border-radius: 999px;
