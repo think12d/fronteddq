@@ -11519,7 +11519,7 @@ function AdminRecordedVideosPage({ user }: { user: User | null }) {
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "name">("newest");
   const [assignmentCourseByRecord, setAssignmentCourseByRecord] = useState<Record<number, string>>({});
-  const [assignmentCourseByRecord, setAssignmentCourseByRecord] = useState<Record<number, string>>({});
+  const [assignmentLiveClassByRecord, setAssignmentLiveClassByRecord] = useState<Record<number, string>>({});
   const [page, setPage] = useState(1);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -11673,8 +11673,8 @@ function AdminRecordedVideosPage({ user }: { user: User | null }) {
       return;
     }
 
-    setAssignmentCourseByRecord((current) => ({ ...current, [recordId]: String(targetCourseId) }));
-    await assignRecording(recordId, String(matchingClass.id));
+        setAssignmentCourseByRecord((current) => ({ ...current, [recordId]: String(targetCourseId) }));
+    await assignRecording(recordId, String(targetCourseId), String(matchingClass.id));
   };
 
   const openPreview = async (record: AdminRecordedVideo) => {
