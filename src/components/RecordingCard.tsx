@@ -14,7 +14,7 @@ import {
   ShieldCheck,
   Sparkles,
   Upload,
-  X,
+  X,Trash2
 } from "lucide-react";
 import { api, apiBlob } from "../api";
 import type { Course, LiveClass, User } from "../types";
@@ -123,6 +123,7 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
   const [syncing, setSyncing] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [assigningId, setAssigningId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [tab, setTab] = useState<"all" | "assigned" | "unassigned">("all");
   const [search, setSearch] = useState("");
   const [courseFilter, setCourseFilter] = useState("");
@@ -308,7 +309,27 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
       setSecuringDriveAccess(false);
     }
   };
+const deleteRecording = async (record: AdminRecordedVideo) => {
+  if (!window.confirm(`Remove "${record.file_name}" from the admin list? This will not delete it from Google Drive.`)) {
+    return;
+  }
 
+  setDeletingId(record.id);
+  setError("");
+  setNotice("");
+
+  try {
+    await api<void>(`/admin/recorded-videos/${record.id}`, { method: "DELETE" });
+    setNotice(`${record.file_name} removed.`);
+    await load();
+  } catch (cause) {
+    const message = (cause as Error).message || "Unable to remove this recording.";
+    setError(message);
+    notifications.showToast({ kind: "error", title: "Delete failed", message });
+  } finally {
+    setDeletingId(null);
+  }
+};
   const assignRecording = async (recordId: number, courseId: string, liveClassId: string) => {
     const selectedCourseId = Number(courseId);
     const selectedLiveClassId = liveClassId ? Number(liveClassId) : null;
@@ -621,6 +642,15 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
                     <button className="rv2-btn rv2-btn-ghost" type="button" onClick={() => void openPreview(record)}>
                       <Play size={14} /> Preview
                     </button>
+                    <button
+  className="rv2-btn rv2-btn-ghost"
+  type="button"
+  disabled={deletingId === record.id || assigningId === record.id}
+  onClick={() => void deleteRecording(record)}
+>
+  <Trash2 size={14} />
+  {deletingId === record.id ? "Deleting…" : "Delete"}
+</button>
                   </div>
                 ) : (
                   <div className="rv2-assign-row">
