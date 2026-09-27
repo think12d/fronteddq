@@ -34,6 +34,10 @@ import { useNotifications } from "../notifications";
  * Usage (in App.tsx):
  *   import AdminRecordedVideosPage from "./components/AdminRecordedVideosPage";
  *   <Route path="/admin/recorded-videos" element={<AdminRecordedVideosPage user={user} />} />
+ *
+ * Assignment rule: Course is always required. Live Class is ALWAYS optional —
+ * whether or not the selected course has live classes, the admin can leave it
+ * unset to save the recording as a prerecorded course video.
  */
 
 type AdminRecordedVideo = {
@@ -130,10 +134,6 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
   const [previewUrl, setPreviewUrl] = useState("");
   const [previewBusy, setPreviewBusy] = useState(false);
   const uploadInputRef = useRef<HTMLInputElement>(null);
-  const [uploadOpen, setUploadOpen] = useState(false);
-  const [uploadCourseId, setUploadCourseId] = useState("");
-  const [uploadLiveClassId, setUploadLiveClassId] = useState("");
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
   const pageSize = 8;
 
   const load = async () => {
@@ -303,17 +303,8 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
     }
   };
 
-  const uploadRecording = async () => {
-    if (!uploadCourseId) {
-      setError("Select a course before uploading.");
-      return;
-    }
-    if (!uploadFile) {
-      setError("Choose an MP3, MP4, or WEBM recording.");
-      return;
-    }
-
-    const extension = uploadFile.name.split(".").pop()?.toLowerCase();
+  const uploadRecording = async (file: File) => {
+    const extension = file.name.split(".").pop()?.toLowerCase();
     const acceptedMimeTypes: Record<string, string[]> = {
       webm: ["video/webm"],
       mp4: ["video/mp4"],
@@ -323,12 +314,12 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
       setError("Choose a WEBM, MP4, or MP3 recording.");
       return;
     }
-    if (uploadFile.type && uploadFile.type !== "application/octet-stream" && !acceptedMimeTypes[extension].includes(uploadFile.type)) {
+    if (file.type && file.type !== "application/octet-stream" && !acceptedMimeTypes[extension].includes(file.type)) {
       setError("The selected file type does not match its extension.");
       return;
     }
-    if (uploadFile.size > 100 * 1024 * 1024) {
-      setError("Recordings must be no larger than 100 MB.");
+    if (file.size > 1024 * 1024 * 1024) {
+      setError("Recordings must be no larger than 1 GB.");
       return;
     }
 
@@ -337,30 +328,17 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
     setNotice("");
     try {
       const form = new FormData();
-      form.append("file", uploadFile);
+      form.append("file", file);
       const result = await api<AdminRecordedVideo>("/admin/recorded-videos/upload", {
         method: "POST",
         body: form,
       });
-
-      // Keep the existing backend contract: upload first, then assign using the existing endpoint.
-      await api(`/admin/recorded-videos/${result.id}/assign`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          course_id: Number(uploadCourseId),
-          live_class_id: uploadLiveClassId ? Number(uploadLiveClassId) : null,
-        }),
+      setNotice(`${result.file_name} uploaded and added as unassigned.`);
+      notifications.showToast({
+        kind: "success",
+        title: "Recording uploaded",
+        message: "The recording is ready for course / Live Class assignment.",
       });
-
-      const message = uploadLiveClassId
-        ? "Course and Live Class linked."
-        : "Assigned to the course as a prerecorded video.";
-      setNotice(`${result.file_name} uploaded successfully. ${message}`);
-      notifications.showToast({ kind: "success", title: "Recording uploaded", message });
-      setUploadOpen(false);
-      setUploadCourseId("");
-      setUploadLiveClassId("");
-      setUploadFile(null);
       await load();
     } catch (cause) {
       const message = (cause as Error).message || "Unable to upload this recording.";
@@ -411,20 +389,26 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
         <div>
           <span className="rv2-eyebrow">Recorded Videos</span>
           <h1>Recorded videos</h1>
-          <p className="rv2-subtitle">Live Class recordings are matched by Drive metadata; prerecorded videos can be assigned directly to a course.</p>
+          <p className="rv2-subtitle">Live Class recordings are matched automatically by Drive metadata and timing; prerecorded videos only need a course — Live Class is always optional.</p>
         </div>
         <div className="rv2-header-actions">
+          <input
+            ref={uploadInputRef}
+            type="file"
+            accept=".webm,.mp4,.mp3,video/webm,video/mp4,audio/mpeg"
+            hidden
+            onChange={(event) => {
+              const file = event.currentTarget.files?.[0];
+              if (file) void uploadRecording(file);
+            }}
+          />
           <button
             className="rv2-btn rv2-btn-ghost"
             type="button"
-            onClick={() => {
-              setUploadOpen(true);
-              setError("");
-              setNotice("");
-            }}
+            onClick={() => uploadInputRef.current?.click()}
             disabled={uploading}
           >
-            <Upload size={16} /> Upload prerecorded
+            <Upload size={16} /> {uploading ? "Uploading…" : "Upload recording"}
           </button>
           <button className="rv2-btn rv2-btn-primary" type="button" onClick={() => void syncNow()} disabled={syncing}>
             <RefreshCw size={16} className={syncing ? "rv2-spin" : ""} />
@@ -577,27 +561,6 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
                   </div>
                 ) : (
                   <div className="rv2-assign-row">
-                    <div
-                      role="note"
-                      style={{
-                        display: "grid",
-                        gap: 4,
-                        marginBottom: 10,
-                        padding: "10px 12px",
-                        border: "1px solid var(--rv2-border)",
-                        borderRadius: 10,
-                      }}
-                    >
-                      <span className="rv2-info-label">{record.suggested_course_title ? "Suggested Course" : "Course"}</span>
-                      {record.suggested_course_title ? (
-                        <>
-                          <strong>{record.suggested_course_title}</strong>
-                          <small>Filename suggestion only. Status remains Unassigned.</small>
-                        </>
-                      ) : (
-                        <small>No filename suggestion. Choose from all courses.</small>
-                      )}
-                    </div>
                     <select
                       aria-label={`Choose course for ${record.file_name}`}
                       value={pendingCourse}
@@ -611,23 +574,31 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
                         <option key={course.id} value={String(course.id)}>{course.title}</option>
                       ))}
                     </select>
-                    {availableLiveClasses.length > 0 ? (
-                      <select
-                        aria-label={`Choose Live Class for ${record.file_name}`}
-                        value={pendingClass}
-                        disabled={!pendingCourse}
-                        onChange={(event) =>
-                          setPendingClassByRecord((current) => ({ ...current, [record.id]: event.target.value }))
-                        }
-                      >
-                        <option value="">Select a Live Class…</option>
-                        {availableLiveClasses.map((item) => (
-                          <option key={item.id} value={String(item.id)}>{item.title}</option>
-                        ))}
-                      </select>
-                    ) : pendingCourse ? (
-                      <div className="rv2-info-value" role="status">No Live Class — Prerecorded Video</div>
-                    ) : null}
+
+                    {pendingCourse && (
+                      <div className="rv2-livewrap">
+                        {availableLiveClasses.length > 0 ? (
+                          <select
+                            aria-label={`Choose Live Class for ${record.file_name} (optional)`}
+                            value={pendingClass}
+                            onChange={(event) =>
+                              setPendingClassByRecord((current) => ({ ...current, [record.id]: event.target.value }))
+                            }
+                          >
+                            <option value="">No Live Class — Prerecorded Video</option>
+                            {availableLiveClasses.map((item) => (
+                              <option key={item.id} value={String(item.id)}>{item.title}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <div className="rv2-info-value" role="status">No Live Class — Prerecorded Video</div>
+                        )}
+                        <small className="rv2-optional-hint">
+                          Live Class is optional — leave it unselected to save this as a prerecorded course video.
+                        </small>
+                      </div>
+                    )}
+
                     <button
                       className="rv2-btn rv2-btn-primary"
                       type="button"
@@ -688,74 +659,6 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
         </div>
       )}
 
-      {uploadOpen && (
-        <div className="rv2-modal-backdrop" onClick={(event) => { if (event.currentTarget === event.target && !uploading) setUploadOpen(false); }}>
-          <div className="rv2-upload-modal" onClick={(event) => event.stopPropagation()}>
-            <div className="rv2-modal-head">
-              <div>
-                <span className="rv2-eyebrow">PRERECORDED VIDEO</span>
-                <h2>Select course and recording</h2>
-                <p>Course is required. Live Class is optional.</p>
-              </div>
-              <button className="rv2-modal-close" type="button" onClick={() => !uploading && setUploadOpen(false)} aria-label="Close">
-                <X size={16} />
-              </button>
-            </div>
-
-            <div className="rv2-upload-body">
-              <label className="rv2-field">
-                <span>Course <b>*</b></span>
-                <select value={uploadCourseId} onChange={(event) => { setUploadCourseId(event.target.value); setUploadLiveClassId(""); }}>
-                  <option value="">Select course…</option>
-                  {courses.map((course) => <option key={course.id} value={String(course.id)}>{course.title}</option>)}
-                </select>
-              </label>
-
-              <label className="rv2-field">
-                <span>Live Class <em>Optional</em></span>
-                <select value={uploadLiveClassId} disabled={!uploadCourseId} onChange={(event) => setUploadLiveClassId(event.target.value)}>
-                  <option value="">No Live Class — prerecorded</option>
-                  {liveClasses.filter((item) => String(item.course_id) === uploadCourseId).map((item) => (
-                    <option key={item.id} value={String(item.id)}>{item.title}</option>
-                  ))}
-                </select>
-              </label>
-
-              <div className="rv2-file-drop">
-                <input ref={uploadInputRef} type="file" accept=".mp3,.mp4,.webm,audio/mpeg,video/mp4,video/webm" onChange={(event) => {
-                  const file = event.currentTarget.files?.[0] || null;
-                  if (!file) return;
-                  const ext = file.name.split(".").pop()?.toLowerCase();
-                  const allowed = ["mp3", "mp4", "webm"];
-                  if (!ext || !allowed.includes(ext)) { setError("Choose an MP3, MP4, or WEBM recording."); setUploadFile(null); return; }
-                  if (file.size > 100 * 1024 * 1024) { setError("Recordings must be no larger than 100 MB."); setUploadFile(null); return; }
-                  setError("");
-                  setUploadFile(file);
-                }} />
-                <Upload size={21} />
-                <div>
-                  <strong>{uploadFile ? uploadFile.name : "Choose MP3, MP4 or WEBM"}</strong>
-                  <span>{uploadFile ? `${formatBytes(uploadFile.size)} · ${uploadFile.name.split(".").pop()?.toUpperCase()}` : "Maximum 100 MB"}</span>
-                </div>
-                <button className="rv2-btn rv2-btn-ghost" type="button" onClick={() => uploadInputRef.current?.click()} disabled={uploading}>
-                  {uploadFile ? "Change file" : "Choose file"}
-                </button>
-              </div>
-            </div>
-
-            <div className="rv2-modal-footer">
-              <span>{uploadLiveClassId ? "This file will be linked to the selected Live Class." : "No Live Class selected — saved as a prerecorded course video."}</span>
-              <div>
-                <button className="rv2-btn rv2-btn-ghost" type="button" onClick={() => setUploadOpen(false)} disabled={uploading}>Cancel</button>
-                <button className="rv2-btn rv2-btn-primary" type="button" onClick={() => void uploadRecording()} disabled={uploading || !uploadCourseId || !uploadFile}>
-                  <Upload size={15} /> {uploading ? "Uploading…" : "Upload recording"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {previewItem && (
         <div className="rv2-modal-backdrop" onClick={() => setPreviewItem(null)}>
           <div className="rv2-modal" onClick={(event) => event.stopPropagation()}>
@@ -782,10 +685,108 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
   );
 }
 
-/* Learner-facing RecordingCard was intentionally removed. This file now only
- * contains the admin recorded-video management screen. */
+type RecordingCardData = {
+  liveClassId?: number;
+  courseId?: number;
+  hideWhenEmpty?: boolean;
+  title: string;
+  topic: string;
+  date?: string;
+  paymentUrl: string;
+};
 
-export default AdminRecordedVideosPage;
+type LearnerRecording = {
+  id: string;
+  name: string;
+  mime_type: string;
+  course_id: number;
+  live_class_id?: number | null;
+  meeting_name?: string;
+  display_name?: string;
+  recorded_at?: string | null;
+  play_url: string;
+};
+
+export default function RecordingCard({ data }: { data: RecordingCardData }) {
+  const [recordings, setRecordings] = useState<LearnerRecording[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError("");
+    api<{ items: LearnerRecording[]; premium_required?: boolean }>('/library/recorded-videos')
+      .then((library) => {
+        if (!active) return;
+        if (library.premium_required) {
+          setError('Course access is required to play this recording.');
+          return;
+        }
+
+        const matching = (library.items || []).filter((item) =>
+          data.liveClassId !== undefined
+            ? item.live_class_id === data.liveClassId
+            : (item.live_class_id === null || item.live_class_id === undefined) && item.course_id === data.courseId,
+        );
+
+        setRecordings(matching);
+        if (matching.length === 0 && !data.hideWhenEmpty) setError('Recording is not available yet.');
+      })
+      .catch((cause) => {
+        if (active) setError((cause as Error).message || 'Unable to load this recording.');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [data.title, data.topic, data.liveClassId, data.courseId, data.hideWhenEmpty]);
+
+  if (data.hideWhenEmpty && !loading && !error && recordings.length === 0) return null;
+
+  return (
+    <article className="recording-card">
+      <div className="recording-card-copy">
+        <span className="eyebrow">CLASS RECORDING</span>
+        <h3>{data.title}</h3>
+        <p>{data.topic}</p>
+        {data.date && <small>{new Date(data.date).toLocaleDateString("en-IN")}</small>}
+      </div>
+      {loading ? (
+        <p className="muted">Loading recording…</p>
+      ) : recordings.length ? (
+        <div className="recording-card-media-list">
+          {recordings.map((recording) => {
+            const isAudio = isAudioRecording(recording.mime_type, recording.name);
+            return (
+              <div key={`${recording.id}-${recording.play_url}`} className="recording-card-media-item">
+                <span>{recording.name}</span>
+                {isAudio ? (
+                  <audio controls preload="metadata" src={recording.play_url}>
+                    Your browser does not support audio playback.
+                  </audio>
+                ) : (
+                  <video controls playsInline preload="metadata" src={recording.play_url}>
+                    Your browser does not support video playback.
+                  </video>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="recording-card-error" role="status">
+          <span>{error}</span>
+          {(error.includes("402") || error.toLowerCase().includes("access")) && (
+            <a href={data.paymentUrl}>View course access</a>
+          )}
+        </div>
+      )}
+    </article>
+  );
+}
 
 const RV2_STYLES = `
 .rv2-root {
@@ -845,6 +846,12 @@ const RV2_STYLES = `
 }
 .rv2-subtitle { margin: 0; color: var(--rv2-muted); font-size: 14px; }
 
+.rv2-header-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .rv2-btn {
   display: inline-flex;
   align-items: center;
@@ -856,6 +863,7 @@ const RV2_STYLES = `
   font-size: 13.5px;
   font-weight: 600;
   padding: 10px 16px;
+  min-height: 40px;
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, border-color 0.15s ease;
   white-space: nowrap;
@@ -920,10 +928,10 @@ const RV2_STYLES = `
   border-radius: 10px;
   padding: 9px 12px;
   flex: 1 1 220px;
-  min-width: 180px;
+  min-width: 0;
   color: var(--rv2-muted);
 }
-.rv2-search input { border: none; outline: none; flex: 1; font-size: 13.5px; background: transparent; color: var(--rv2-ink); }
+.rv2-search input { border: none; outline: none; flex: 1; font-size: 13.5px; background: transparent; color: var(--rv2-ink); min-width: 0; }
 .rv2-tabs { display: flex; gap: 6px; background: var(--rv2-surface); border: 1px solid var(--rv2-border); border-radius: 10px; padding: 4px; }
 .rv2-tab { border: none; background: transparent; padding: 7px 12px; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--rv2-muted); cursor: pointer; transition: background 0.15s ease, color 0.15s ease; }
 .rv2-tab.is-active { background: var(--rv2-accent-soft); color: var(--rv2-accent); }
@@ -991,6 +999,7 @@ const RV2_STYLES = `
 .rv2-assign-row {
   display: flex;
   flex-wrap: wrap;
+  align-items: flex-start;
   gap: 10px;
   margin-top: 14px;
   padding-top: 12px;
@@ -998,6 +1007,7 @@ const RV2_STYLES = `
 }
 .rv2-assign-row select {
   flex: 1 1 220px;
+  min-width: 0;
   border: 1px solid var(--rv2-border);
   border-radius: 10px;
   padding: 9px 12px;
@@ -1005,6 +1015,16 @@ const RV2_STYLES = `
   background: var(--rv2-bg);
   color: var(--rv2-ink);
 }
+
+.rv2-livewrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.rv2-livewrap select { width: 100%; }
+.rv2-optional-hint { font-size: 11.5px; color: var(--rv2-muted); line-height: 1.4; }
 
 .rv2-pagination { display: flex; justify-content: center; align-items: center; gap: 6px; margin-top: 26px; flex-wrap: wrap; }
 .rv2-page { border: 1px solid var(--rv2-border); background: var(--rv2-surface); border-radius: 8px; min-width: 34px; height: 34px; font-size: 13px; font-weight: 600; color: var(--rv2-muted); cursor: pointer; }
@@ -1032,7 +1052,8 @@ const RV2_STYLES = `
   box-shadow: 0 24px 60px rgba(20, 23, 43, 0.25);
 }
 .rv2-modal h3 { margin: 0 0 12px; font-size: 15px; padding-right: 30px; }
-.rv2-modal video { width: 100%; max-height: 65vh; border-radius: 12px; background: #0b0c14; display: block; }
+.rv2-modal video,
+.rv2-modal audio { width: 100%; max-height: 65vh; border-radius: 12px; background: #0b0c14; display: block; }
 .rv2-modal-close {
   position: absolute; top: 14px; right: 14px;
   border: none; background: var(--rv2-bg); border-radius: 999px;
@@ -1041,33 +1062,44 @@ const RV2_STYLES = `
 }
 .rv2-modal-loading { display: flex; align-items: center; gap: 8px; padding: 40px 0; justify-content: center; color: var(--rv2-muted); }
 
+/* ---- Responsive breakpoints: tablet ---- */
+@media (max-width: 900px) {
+  .rv2-stats { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .rv2-header { align-items: stretch; }
+}
 
-.rv2-upload-modal { width: min(94vw, 680px); max-height: calc(100vh - 32px); overflow:auto; background:var(--rv2-surface); border-radius:18px; box-shadow:0 28px 70px rgba(20,23,43,.25); }
-.rv2-modal-head { display:flex; justify-content:space-between; gap:16px; padding:20px; border-bottom:1px solid var(--rv2-border); }
-.rv2-modal-head h2 { margin:5px 0 3px; font-size:19px; }
-.rv2-modal-head p { margin:0; color:var(--rv2-muted); font-size:13px; }
-.rv2-modal-close { width:32px; height:32px; border:1px solid var(--rv2-border); border-radius:9px; background:var(--rv2-bg); color:var(--rv2-muted); display:grid; place-items:center; cursor:pointer; }
-.rv2-upload-body { display:grid; gap:14px; padding:20px; }
-.rv2-field { display:block; }
-.rv2-field > span { display:block; margin-bottom:6px; color:var(--rv2-muted); font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; }
-.rv2-field b { color:var(--rv2-danger); }
-.rv2-field em { color:var(--rv2-muted); font-style:normal; text-transform:none; letter-spacing:0; }
-.rv2-field select { width:100%; min-height:42px; border:1px solid var(--rv2-border); border-radius:10px; padding:0 11px; background:var(--rv2-bg); color:var(--rv2-ink); font:inherit; font-size:13px; }
-.rv2-file-drop { position:relative; display:flex; align-items:center; gap:11px; padding:13px; min-height:72px; border:1px dashed #c9cde0; border-radius:13px; background:var(--rv2-bg); color:var(--rv2-accent); }
-.rv2-file-drop input { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
-.rv2-file-drop > div { min-width:0; flex:1; display:flex; flex-direction:column; gap:3px; }
-.rv2-file-drop strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--rv2-ink); font-size:13px; }
-.rv2-file-drop span { color:var(--rv2-muted); font-size:11px; }
-.rv2-modal-footer { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:14px 20px 18px; border-top:1px solid var(--rv2-border); }
-.rv2-modal-footer > span { color:var(--rv2-muted); font-size:11.5px; line-height:1.45; }
-.rv2-modal-footer > div { display:flex; gap:8px; flex-wrap:wrap; }
-
+/* ---- Responsive breakpoints: small tablet / large phone ---- */
 @media (max-width: 720px) {
-  .rv2-stats { grid-template-columns: 1fr; }
-  .rv2-modal-footer { flex-direction:column; align-items:stretch; }
-  .rv2-modal-footer > div { width:100%; }
-  .rv2-modal-footer .rv2-btn { flex:1; }
+  .rv2-stats { grid-template-columns: 1fr 1fr; }
   .rv2-assigned-info, .rv2-assign-row { flex-direction: column; align-items: stretch; }
   .rv2-card-top { flex-direction: column; }
+  .rv2-header { flex-direction: column; align-items: stretch; }
+  .rv2-header-actions { width: 100%; }
+  .rv2-header-actions .rv2-btn { flex: 1 1 auto; justify-content: center; }
+}
+
+/* ---- Responsive breakpoints: phones ---- */
+@media (max-width: 560px) {
+  .rv2-root { padding: 14px 12px 32px; border-radius: 14px; }
+  .rv2-stats { grid-template-columns: 1fr; }
+  .rv2-toolbar { flex-direction: column; align-items: stretch; }
+  .rv2-tabs { justify-content: space-between; }
+  .rv2-tab { flex: 1; text-align: center; }
+  .rv2-search { min-width: 0; }
+  .rv2-sort { width: 100%; }
+  .rv2-meta-row { gap: 8px; }
+  .rv2-assign-row select,
+  .rv2-livewrap { flex: 1 1 auto; }
+  .rv2-modal { width: 96vw; padding: 14px; }
+  .rv2-pagination { gap: 4px; }
+  .rv2-page { min-width: 30px; height: 30px; font-size: 12px; }
+}
+
+/* ---- Responsive breakpoints: very small phones ---- */
+@media (max-width: 380px) {
+  .rv2-stat-value { font-size: 22px; }
+  .rv2-card { padding: 12px 14px; }
+  .rv2-card-title span { max-width: 55vw; }
+  .rv2-header h1 { font-size: 20px; }
 }
 `;
