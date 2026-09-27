@@ -6318,7 +6318,7 @@ textarea { min-height: 108px; }
 }
 
 .admin-main > main > * {
-  width: 100%;
+  width: 87%;
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
