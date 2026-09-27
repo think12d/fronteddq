@@ -11519,6 +11519,7 @@ function AdminRecordedVideosPage({ user }: { user: User | null }) {
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "name">("newest");
   const [assignmentCourseByRecord, setAssignmentCourseByRecord] = useState<Record<number, string>>({});
+  const [assignmentCourseByRecord, setAssignmentCourseByRecord] = useState<Record<number, string>>({});
   const [page, setPage] = useState(1);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -11627,19 +11628,29 @@ function AdminRecordedVideosPage({ user }: { user: User | null }) {
     }
   };
 
-  const assignRecording = async (recordId: number, liveClassId: string) => {
-    const selectedId = Number(liveClassId);
-    if (!selectedId) return;
+  const assignRecording = async (recordId: number, courseId: string, liveClassId: string) => {
+    const selectedCourseId = Number(courseId);
+    const selectedLiveClassId = liveClassId ? Number(liveClassId) : null;
+    const courseLiveClasses = liveClasses.filter((item) => item.course_id === selectedCourseId);
+    if (!selectedCourseId || (courseLiveClasses.length > 0 && !selectedLiveClassId)) {
+      setError(courseLiveClasses.length > 0 ? "Please choose a Live Class before assigning this recording." : "Please choose a course before assigning this recording.");
+      return;
+    }
     setAssigningId(recordId);
     setError("");
     setNotice("");
     try {
       await api(`/admin/recorded-videos/${recordId}/assign`, {
         method: "PATCH",
-        body: JSON.stringify({ live_class_id: selectedId }),
+               body: JSON.stringify({ course_id: selectedCourseId, live_class_id: selectedLiveClassId }),
+
       });
-      setNotice("Recording assigned successfully.");
-      notifications.showToast({ kind: "success", title: "Recording assigned", message: "The recording is now linked to the selected live class." });
+      const assignmentMessage = selectedLiveClassId
+        ? "The recording is now linked to the selected live class."
+        : "The recording is assigned as a prerecorded course video.";
+      setNotice(`Recording assigned successfully. ${assignmentMessage}`);
+      notifications.showToast({ kind: "success", title: "Recording assigned", message: assignmentMessage });
+
       await load();
     } catch (cause) {
       setError((cause as Error).message || "Unable to assign this recording. Please try again.");
@@ -11936,14 +11947,18 @@ function AdminRecordedVideosPage({ user }: { user: User | null }) {
                         </>
                       ) : (
                         <>
+                          {record.unassigned_reason ? (
+                            <p style={{ color: "#64748b", fontSize: 13, margin: "0 0 12px" }}>{record.unassigned_reason}</p>
+                          ) : null}
                           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10, marginBottom: 14 }}>
                             <label style={{ display: "grid", gap: 6, fontSize: 12, color: "#475569", fontWeight: 600 }}>
                               Course
                               <select
                                 value={assignmentCourseByRecord[record.id] ?? ""}
                                 onChange={(event) => {
-                                  const nextValue = event.target.value;
-                                  setAssignmentCourseByRecord((current) => ({ ...current, [record.id]: nextValue }));
+                                  const nextCourseId = event.target.value;
+                                  setAssignmentCourseByRecord((current) => ({ ...current, [record.id]: nextCourseId }));
+                                  setAssignmentLiveClassByRecord((current) => ({ ...current, [record.id]: "" }));
                                 }}
                               >
                                 <option value="">Select Course</option>
@@ -11952,20 +11967,41 @@ function AdminRecordedVideosPage({ user }: { user: User | null }) {
                                 ))}
                               </select>
                             </label>
+                            <label style={{ display: "grid", gap: 6, fontSize: 12, color: "#475569", fontWeight: 600 }}>
+                              Live Class
+                              {liveClasses.some((item) => String(item.course_id) === assignmentCourseByRecord[record.id]) ? (
+                                <select
+                                  value={assignmentLiveClassByRecord[record.id] ?? ""}
+                                  disabled={!assignmentCourseByRecord[record.id]}
+                                  onChange={(event) => {
+                                    const nextValue = event.target.value;
+                                    setAssignmentLiveClassByRecord((current) => ({ ...current, [record.id]: nextValue }));
+                                  }}
+                                >
+                                  <option value="">Select a Live Class</option>
+                                  {liveClasses
+                                    .filter((item) => String(item.course_id) === assignmentCourseByRecord[record.id])
+                                    .map((liveClass) => (
+                                      <option key={liveClass.id} value={String(liveClass.id)}>{liveClass.title}</option>
+                                    ))}
+                                </select>
+                              ) : (
+                                <span role="status" style={{ minHeight: 38, display: "flex", alignItems: "center", color: "#64748b" }}>
+                                  {assignmentCourseByRecord[record.id] ? "No Live Class — Prerecorded Video" : "Select a course first"}
+                                </span>
+                              )}
+                            </label>
                           </div>
                           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                             <button
                               className="button button-small button-dark"
                               type="button"
                               onClick={async () => {
-                                const selectedCourse = assignmentCourseByRecord[record.id] ?? (courseFilter === "all" ? "" : courseFilter);
-                                if (!selectedCourse) {
-                                  setError("Please choose a course before assigning this recording.");
-                                  return;
-                                }
-                                await assignToCourse(record.id, selectedCourse);
+                                const selectedCourse = assignmentCourseByRecord[record.id] ?? "";
+                                const selectedLiveClass = assignmentLiveClassByRecord[record.id] ?? "";
+                                await assignRecording(record.id, selectedCourse, selectedLiveClass);
                               }}
-                              disabled={assigningId === record.id}
+                              disabled={assigningId === record.id || !assignmentCourseByRecord[record.id] || (liveClasses.some((item) => String(item.course_id) === assignmentCourseByRecord[record.id]) && !assignmentLiveClassByRecord[record.id])}
                             >
                               {assigningId === record.id ? "Assigning..." : "Assign Recording"}
                             </button>
