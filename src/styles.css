@@ -9796,3 +9796,8 @@ textarea { min-height: 108px; }
     font-size: 0.75rem;
   }
 }
+@media (min-width: 751px) {
+  .admin-menu-button {
+    display: none !important;
+  }
+}
