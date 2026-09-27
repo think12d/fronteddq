@@ -130,6 +130,10 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
   const [previewUrl, setPreviewUrl] = useState("");
   const [previewBusy, setPreviewBusy] = useState(false);
   const uploadInputRef = useRef<HTMLInputElement>(null);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadCourseId, setUploadCourseId] = useState("");
+  const [uploadLiveClassId, setUploadLiveClassId] = useState("");
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
   const pageSize = 8;
 
   const load = async () => {
@@ -299,8 +303,17 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
     }
   };
 
-  const uploadRecording = async (file: File) => {
-    const extension = file.name.split(".").pop()?.toLowerCase();
+  const uploadRecording = async () => {
+    if (!uploadCourseId) {
+      setError("Select a course before uploading.");
+      return;
+    }
+    if (!uploadFile) {
+      setError("Choose an MP3, MP4, or WEBM recording.");
+      return;
+    }
+
+    const extension = uploadFile.name.split(".").pop()?.toLowerCase();
     const acceptedMimeTypes: Record<string, string[]> = {
       webm: ["video/webm"],
       mp4: ["video/mp4"],
@@ -310,12 +323,12 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
       setError("Choose a WEBM, MP4, or MP3 recording.");
       return;
     }
-    if (file.type && file.type !== "application/octet-stream" && !acceptedMimeTypes[extension].includes(file.type)) {
+    if (uploadFile.type && uploadFile.type !== "application/octet-stream" && !acceptedMimeTypes[extension].includes(uploadFile.type)) {
       setError("The selected file type does not match its extension.");
       return;
     }
-    if (file.size > 1024 * 1024 * 1024) {
-      setError("Recordings must be no larger than 1 GB.");
+    if (uploadFile.size > 100 * 1024 * 1024) {
+      setError("Recordings must be no larger than 100 MB.");
       return;
     }
 
@@ -324,17 +337,30 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
     setNotice("");
     try {
       const form = new FormData();
-      form.append("file", file);
+      form.append("file", uploadFile);
       const result = await api<AdminRecordedVideo>("/admin/recorded-videos/upload", {
         method: "POST",
         body: form,
       });
-      setNotice(`${result.file_name} uploaded and added as unassigned.`);
-      notifications.showToast({
-        kind: "success",
-        title: "Recording uploaded",
-        message: "The recording is ready for Live Class assignment.",
+
+      // Keep the existing backend contract: upload first, then assign using the existing endpoint.
+      await api(`/admin/recorded-videos/${result.id}/assign`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          course_id: Number(uploadCourseId),
+          live_class_id: uploadLiveClassId ? Number(uploadLiveClassId) : null,
+        }),
       });
+
+      const message = uploadLiveClassId
+        ? "Course and Live Class linked."
+        : "Assigned to the course as a prerecorded video.";
+      setNotice(`${result.file_name} uploaded successfully. ${message}`);
+      notifications.showToast({ kind: "success", title: "Recording uploaded", message });
+      setUploadOpen(false);
+      setUploadCourseId("");
+      setUploadLiveClassId("");
+      setUploadFile(null);
       await load();
     } catch (cause) {
       const message = (cause as Error).message || "Unable to upload this recording.";
@@ -388,23 +414,17 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
           <p className="rv2-subtitle">Live Class recordings are matched by Drive metadata; prerecorded videos can be assigned directly to a course.</p>
         </div>
         <div className="rv2-header-actions">
-          <input
-            ref={uploadInputRef}
-            type="file"
-            accept=".webm,.mp4,.mp3,video/webm,video/mp4,audio/mpeg"
-            hidden
-            onChange={(event) => {
-              const file = event.currentTarget.files?.[0];
-              if (file) void uploadRecording(file);
-            }}
-          />
           <button
             className="rv2-btn rv2-btn-ghost"
             type="button"
-            onClick={() => uploadInputRef.current?.click()}
+            onClick={() => {
+              setUploadOpen(true);
+              setError("");
+              setNotice("");
+            }}
             disabled={uploading}
           >
-            <Upload size={16} /> {uploading ? "Uploading…" : "Upload recording"}
+            <Upload size={16} /> Upload prerecorded
           </button>
           <button className="rv2-btn rv2-btn-primary" type="button" onClick={() => void syncNow()} disabled={syncing}>
             <RefreshCw size={16} className={syncing ? "rv2-spin" : ""} />
@@ -611,7 +631,7 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
                     <button
                       className="rv2-btn rv2-btn-primary"
                       type="button"
-                      disabled={assigningId === record.id || !pendingCourse || (availableLiveClasses.length > 0 && !pendingClass)}
+                      disabled={assigningId === record.id || !pendingCourse}
                       onClick={() => void assignRecording(record.id, pendingCourse, pendingClass)}
                     >
                       {assigningId === record.id ? "Saving…" : editingAssignmentByRecord[record.id] ? "Save assignment" : "Assign recording"}
@@ -668,6 +688,74 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
         </div>
       )}
 
+      {uploadOpen && (
+        <div className="rv2-modal-backdrop" onClick={(event) => { if (event.currentTarget === event.target && !uploading) setUploadOpen(false); }}>
+          <div className="rv2-upload-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="rv2-modal-head">
+              <div>
+                <span className="rv2-eyebrow">PRERECORDED VIDEO</span>
+                <h2>Select course and recording</h2>
+                <p>Course is required. Live Class is optional.</p>
+              </div>
+              <button className="rv2-modal-close" type="button" onClick={() => !uploading && setUploadOpen(false)} aria-label="Close">
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="rv2-upload-body">
+              <label className="rv2-field">
+                <span>Course <b>*</b></span>
+                <select value={uploadCourseId} onChange={(event) => { setUploadCourseId(event.target.value); setUploadLiveClassId(""); }}>
+                  <option value="">Select course…</option>
+                  {courses.map((course) => <option key={course.id} value={String(course.id)}>{course.title}</option>)}
+                </select>
+              </label>
+
+              <label className="rv2-field">
+                <span>Live Class <em>Optional</em></span>
+                <select value={uploadLiveClassId} disabled={!uploadCourseId} onChange={(event) => setUploadLiveClassId(event.target.value)}>
+                  <option value="">No Live Class — prerecorded</option>
+                  {liveClasses.filter((item) => String(item.course_id) === uploadCourseId).map((item) => (
+                    <option key={item.id} value={String(item.id)}>{item.title}</option>
+                  ))}
+                </select>
+              </label>
+
+              <div className="rv2-file-drop">
+                <input ref={uploadInputRef} type="file" accept=".mp3,.mp4,.webm,audio/mpeg,video/mp4,video/webm" onChange={(event) => {
+                  const file = event.currentTarget.files?.[0] || null;
+                  if (!file) return;
+                  const ext = file.name.split(".").pop()?.toLowerCase();
+                  const allowed = ["mp3", "mp4", "webm"];
+                  if (!ext || !allowed.includes(ext)) { setError("Choose an MP3, MP4, or WEBM recording."); setUploadFile(null); return; }
+                  if (file.size > 100 * 1024 * 1024) { setError("Recordings must be no larger than 100 MB."); setUploadFile(null); return; }
+                  setError("");
+                  setUploadFile(file);
+                }} />
+                <Upload size={21} />
+                <div>
+                  <strong>{uploadFile ? uploadFile.name : "Choose MP3, MP4 or WEBM"}</strong>
+                  <span>{uploadFile ? `${formatBytes(uploadFile.size)} · ${uploadFile.name.split(".").pop()?.toUpperCase()}` : "Maximum 100 MB"}</span>
+                </div>
+                <button className="rv2-btn rv2-btn-ghost" type="button" onClick={() => uploadInputRef.current?.click()} disabled={uploading}>
+                  {uploadFile ? "Change file" : "Choose file"}
+                </button>
+              </div>
+            </div>
+
+            <div className="rv2-modal-footer">
+              <span>{uploadLiveClassId ? "This file will be linked to the selected Live Class." : "No Live Class selected — saved as a prerecorded course video."}</span>
+              <div>
+                <button className="rv2-btn rv2-btn-ghost" type="button" onClick={() => setUploadOpen(false)} disabled={uploading}>Cancel</button>
+                <button className="rv2-btn rv2-btn-primary" type="button" onClick={() => void uploadRecording()} disabled={uploading || !uploadCourseId || !uploadFile}>
+                  <Upload size={15} /> {uploading ? "Uploading…" : "Upload recording"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {previewItem && (
         <div className="rv2-modal-backdrop" onClick={() => setPreviewItem(null)}>
           <div className="rv2-modal" onClick={(event) => event.stopPropagation()}>
@@ -694,108 +782,10 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
   );
 }
 
-type RecordingCardData = {
-  liveClassId?: number;
-  courseId?: number;
-  hideWhenEmpty?: boolean;
-  title: string;
-  topic: string;
-  date?: string;
-  paymentUrl: string;
-};
+/* Learner-facing RecordingCard was intentionally removed. This file now only
+ * contains the admin recorded-video management screen. */
 
-type LearnerRecording = {
-  id: string;
-  name: string;
-  mime_type: string;
-  course_id: number;
-  live_class_id?: number | null;
-  meeting_name?: string;
-  display_name?: string;
-  recorded_at?: string | null;
-  play_url: string;
-};
-
-export default function RecordingCard({ data }: { data: RecordingCardData }) {
-  const [recordings, setRecordings] = useState<LearnerRecording[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
-    setError("");
-    api<{ items: LearnerRecording[]; premium_required?: boolean }>('/library/recorded-videos')
-      .then((library) => {
-        if (!active) return;
-        if (library.premium_required) {
-          setError('Course access is required to play this recording.');
-          return;
-        }
-
-        const matching = (library.items || []).filter((item) =>
-          data.liveClassId !== undefined
-            ? item.live_class_id === data.liveClassId
-            : (item.live_class_id === null || item.live_class_id === undefined) && item.course_id === data.courseId,
-        );
-
-        setRecordings(matching);
-        if (matching.length === 0 && !data.hideWhenEmpty) setError('Recording is not available yet.');
-      })
-      .catch((cause) => {
-        if (active) setError((cause as Error).message || 'Unable to load this recording.');
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [data.title, data.topic, data.liveClassId, data.courseId, data.hideWhenEmpty]);
-
-  if (data.hideWhenEmpty && !loading && !error && recordings.length === 0) return null;
-
-  return (
-    <article className="recording-card">
-      <div className="recording-card-copy">
-        <span className="eyebrow">CLASS RECORDING</span>
-        <h3>{data.title}</h3>
-        <p>{data.topic}</p>
-        {data.date && <small>{new Date(data.date).toLocaleDateString("en-IN")}</small>}
-      </div>
-      {loading ? (
-        <p className="muted">Loading recording…</p>
-      ) : recordings.length ? (
-        <div className="recording-card-media-list">
-          {recordings.map((recording) => {
-            const isAudio = isAudioRecording(recording.mime_type, recording.name);
-            return (
-              <div key={`${recording.id}-${recording.play_url}`} className="recording-card-media-item">
-                <span>{recording.name}</span>
-                {isAudio ? (
-                  <audio controls preload="metadata" src={recording.play_url}>
-                    Your browser does not support audio playback.
-                  </audio>
-                ) : (
-                  <video controls playsInline preload="metadata" src={recording.play_url}>
-                    Your browser does not support video playback.
-                  </video>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="recording-card-error" role="status">
-          <span>{error}</span>
-          {(error.includes("402") || error.toLowerCase().includes("access")) && (
-            <a href={data.paymentUrl}>View course access</a>
-          )}
-        </div>
-      )}
-    </article>
-  );
-}
+export default AdminRecordedVideosPage;
 
 const RV2_STYLES = `
 .rv2-root {
@@ -1051,8 +1041,32 @@ const RV2_STYLES = `
 }
 .rv2-modal-loading { display: flex; align-items: center; gap: 8px; padding: 40px 0; justify-content: center; color: var(--rv2-muted); }
 
+
+.rv2-upload-modal { width: min(94vw, 680px); max-height: calc(100vh - 32px); overflow:auto; background:var(--rv2-surface); border-radius:18px; box-shadow:0 28px 70px rgba(20,23,43,.25); }
+.rv2-modal-head { display:flex; justify-content:space-between; gap:16px; padding:20px; border-bottom:1px solid var(--rv2-border); }
+.rv2-modal-head h2 { margin:5px 0 3px; font-size:19px; }
+.rv2-modal-head p { margin:0; color:var(--rv2-muted); font-size:13px; }
+.rv2-modal-close { width:32px; height:32px; border:1px solid var(--rv2-border); border-radius:9px; background:var(--rv2-bg); color:var(--rv2-muted); display:grid; place-items:center; cursor:pointer; }
+.rv2-upload-body { display:grid; gap:14px; padding:20px; }
+.rv2-field { display:block; }
+.rv2-field > span { display:block; margin-bottom:6px; color:var(--rv2-muted); font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; }
+.rv2-field b { color:var(--rv2-danger); }
+.rv2-field em { color:var(--rv2-muted); font-style:normal; text-transform:none; letter-spacing:0; }
+.rv2-field select { width:100%; min-height:42px; border:1px solid var(--rv2-border); border-radius:10px; padding:0 11px; background:var(--rv2-bg); color:var(--rv2-ink); font:inherit; font-size:13px; }
+.rv2-file-drop { position:relative; display:flex; align-items:center; gap:11px; padding:13px; min-height:72px; border:1px dashed #c9cde0; border-radius:13px; background:var(--rv2-bg); color:var(--rv2-accent); }
+.rv2-file-drop input { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
+.rv2-file-drop > div { min-width:0; flex:1; display:flex; flex-direction:column; gap:3px; }
+.rv2-file-drop strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--rv2-ink); font-size:13px; }
+.rv2-file-drop span { color:var(--rv2-muted); font-size:11px; }
+.rv2-modal-footer { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:14px 20px 18px; border-top:1px solid var(--rv2-border); }
+.rv2-modal-footer > span { color:var(--rv2-muted); font-size:11.5px; line-height:1.45; }
+.rv2-modal-footer > div { display:flex; gap:8px; flex-wrap:wrap; }
+
 @media (max-width: 720px) {
   .rv2-stats { grid-template-columns: 1fr; }
+  .rv2-modal-footer { flex-direction:column; align-items:stretch; }
+  .rv2-modal-footer > div { width:100%; }
+  .rv2-modal-footer .rv2-btn { flex:1; }
   .rv2-assigned-info, .rv2-assign-row { flex-direction: column; align-items: stretch; }
   .rv2-card-top { flex-direction: column; }
 }
