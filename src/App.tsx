@@ -11156,7 +11156,8 @@ function CourseLiveClasses({
   const recordings = classes.filter(
     (item) => item.recording_status === "COMPLETED",
   );
-  if (!user || (classroomClasses.length === 0 && recordings.length === 0))
+  if (!user || (!courseAccess && classroomClasses.length === 0 && recordings.length === 0))
+    
     return null;
   if (!courseAccess) {
     return (
@@ -11220,7 +11221,7 @@ function CourseLiveClasses({
           .map((item) => (
             <LiveClassRoomPanel key={`room-${item.id}`} liveClassId={item.id} />
           ))}
-        {recordings.length > 0 && (
+                {recordings.length > 0 && (
           <div className="recording-grid course-recordings">
             {recordings.map((item) => (
               <RecordingCard
@@ -11236,6 +11237,18 @@ function CourseLiveClasses({
             ))}
           </div>
         )}
+        <div className="recording-grid course-recordings">
+          <RecordingCard
+            key={`course-prerecorded-${courseId}`}
+            data={{
+              courseId,
+              hideWhenEmpty: true,
+              title: "Prerecorded course videos",
+              topic: "Course recordings",
+              paymentUrl: `/payment/course/${courseSlug}`,
+            }}
+          />
+        </div>
       </section>
     </>
   );
@@ -11477,15 +11490,20 @@ type AdminRecordedVideo = {
   duration_seconds?: number | null;
   live_class_id?: number | null;
   live_class_title?: string | null;
+  course_id?: number | null;
+  course_title?: string | null;
+  media_type?: "audio" | "video";
+  format?: string;
+  recording_id?: number | null;
   status: string;
   matching_source?: string | null;
   match_confidence?: string | null;
+  unassigned_reason?: string | null;
   available?: boolean;
   last_error?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
 };
-
 function AdminRecordedVideosPage({ user }: { user: User | null }) {
   const notifications = useNotifications();
   const [records, setRecords] = useState<AdminRecordedVideo[]>([]);
