@@ -6318,7 +6318,7 @@ textarea { min-height: 108px; }
 }
 
 .admin-main > main > * {
-  width: 87%;
+  width: 95%;
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
@@ -6330,7 +6330,7 @@ textarea { min-height: 108px; }
 .admin-main .payments-page,
 .admin-main  .admin-access-shell page-shell{
   
-  max-width: 90%;
+  max-width: 95%;
   min-width: 0;
   margin: 0 auto;
   box-sizing: border-box;
