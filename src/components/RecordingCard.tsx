@@ -653,7 +653,9 @@ type LearnerRecording = {
   id: string;
   name: string;
   mime_type: string;
+  live_class_id: number;
   meeting_name?: string;
+  display_name?: string;
   recorded_at?: string | null;
   play_url: string;
 };
@@ -667,21 +669,23 @@ export default function RecordingCard({ data }: { data: RecordingCardData }) {
     let active = true;
     setLoading(true);
     setError("");
-    api<{ items: LearnerRecording[]; premium_required?: boolean }>("/library/recorded-videos")
+    api<{ items: LearnerRecording[]; premium_required?: boolean }>('/library/recorded-videos')
       .then((library) => {
         if (!active) return;
         if (library.premium_required) {
-          setError("Course access is required to play this recording.");
+          setError('Course access is required to play this recording.');
           return;
         }
+
         const matching = (library.items || []).filter(
-          (item) => item.meeting_name === data.title || item.meeting_name === data.topic,
+          (item) => item.live_class_id === data.liveClassId,
         );
+
         setRecordings(matching);
-        if (matching.length === 0) setError("Recording is not available yet.");
+        if (matching.length === 0) setError('Recording is not available yet.');
       })
       .catch((cause) => {
-        if (active) setError((cause as Error).message || "Unable to load this recording.");
+        if (active) setError((cause as Error).message || 'Unable to load this recording.');
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -703,20 +707,24 @@ export default function RecordingCard({ data }: { data: RecordingCardData }) {
         <p className="muted">Loading recording…</p>
       ) : recordings.length ? (
         <div className="recording-card-media-list">
-          {recordings.map((recording) => (
-            <div key={recording.id} className="recording-card-media-item">
-              <span>{recording.name}</span>
-              {recording.mime_type.startsWith("audio/") ? (
-                <audio controls preload="metadata" src={recording.play_url}>
-                  Your browser does not support audio playback.
-                </audio>
-              ) : (
-                <video controls playsInline preload="metadata" src={recording.play_url}>
-                  Your browser does not support video playback.
-                </video>
-              )}
-            </div>
-          ))}
+          {recordings.map((recording) => {
+            const mediaType = (recording.mime_type || "video/mp4").toLowerCase();
+            const isAudio = mediaType.startsWith("audio/");
+            return (
+              <div key={`${recording.id}-${recording.play_url}`} className="recording-card-media-item">
+                <span>{recording.name}</span>
+                {isAudio ? (
+                  <audio controls preload="metadata" src={recording.play_url}>
+                    Your browser does not support audio playback.
+                  </audio>
+                ) : (
+                  <video controls playsInline preload="metadata" src={recording.play_url}>
+                    Your browser does not support video playback.
+                  </video>
+                )}
+              </div>
+            );
+          })}
         </div>
       ) : (
         <div className="recording-card-error" role="status">
