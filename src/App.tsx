@@ -1723,121 +1723,597 @@ function AdminUserAccessPage({ user }: { user: User | null }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  // Filters
+  const [courseFilter, setCourseFilter] = useState("all");
+  const [accessFilter, setAccessFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const rowsPerPage = 10;
+
   useEffect(() => {
     if (!user) return;
+
     let active = true;
+
     const load = async () => {
       setLoading(true);
       setError("");
+
       try {
-        const response = await api<{ items: any[]; total: number }>('/admin/user-access');
-        if (active) setRows(response.items || []);
+        const response = await api<{
+          items: any[];
+          total: number;
+        }>("/admin/user-access");
+
+        if (active) {
+          setRows(response.items || []);
+        }
       } catch (cause) {
         if (!active) return;
-        setError((cause as Error).message || 'Unable to load user access records.');
+
+        setError(
+          (cause as Error).message ||
+            "Unable to load user access records."
+        );
       } finally {
-        if (active) setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       }
     };
+
     void load();
-    return () => { active = false; };
+
+    return () => {
+      active = false;
+    };
   }, [user?.id]);
 
-  if (!user || user.role !== 'admin') return <Navigate to="/admin/login" replace />;
+  /*
+   * Reset pagination whenever search/filter changes.
+   */
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [query, courseFilter, accessFilter, statusFilter]);
 
+  if (!user || user.role !== "admin") {
+    return <Navigate to="/admin/login" replace />;
+  }
+
+  /*
+   * Safely get course access records.
+   */
+  const getCourseAccess = (row: any) => {
+    return Array.isArray(row.course_access)
+      ? row.course_access
+      : [];
+  };
+
+  /*
+   * Build course filter options from loaded users.
+   */
+  const courseOptions = Array.from(
+    new Map(
+      rows
+        .flatMap((row) => getCourseAccess(row))
+        .filter(
+          (course: any) =>
+            course &&
+            course.course_id !== undefined &&
+            course.course_id !== null
+        )
+        .map((course: any) => [
+          String(course.course_id),
+          course.course_title ||
+            `Course #${course.course_id}`,
+        ])
+    ).entries()
+  );
+
+  /*
+   * Search + filters.
+   */
   const filtered = rows.filter((row) => {
-    if (!query.trim()) return true;
-    const term = query.toLowerCase();
-    return row.full_name.toLowerCase().includes(term) || row.email.toLowerCase().includes(term);
+    const courseAccess = getCourseAccess(row);
+
+    /*
+     * SEARCH
+     */
+    const term = query.trim().toLowerCase();
+
+    const matchesSearch =
+      !term ||
+      String(row.full_name || "")
+        .toLowerCase()
+        .includes(term) ||
+      String(row.email || "")
+        .toLowerCase()
+        .includes(term);
+
+    if (!matchesSearch) {
+      return false;
+    }
+
+    /*
+     * COURSE FILTER
+     */
+    const matchesCourse =
+      courseFilter === "all" ||
+      courseAccess.some(
+        (course: any) =>
+          String(course.course_id) ===
+          String(courseFilter)
+      );
+
+    if (!matchesCourse) {
+      return false;
+    }
+
+    /*
+     * ACCESS FILTER
+     */
+    let matchesAccess = true;
+
+    if (accessFilter === "paid") {
+      matchesAccess = courseAccess.some(
+        (course: any) =>
+          course.access_type === "paid"
+      );
+    }
+
+    if (accessFilter === "manual") {
+      matchesAccess = courseAccess.some(
+        (course: any) =>
+          course.access_type === "manual"
+      );
+    }
+
+    if (accessFilter === "none") {
+      matchesAccess = courseAccess.length === 0;
+    }
+
+    if (!matchesAccess) {
+      return false;
+    }
+
+    /*
+     * STATUS FILTER
+     */
+    const hasActiveAccess = courseAccess.some(
+      (course: any) => course.is_active === true
+    );
+
+    let matchesStatus = true;
+
+    if (statusFilter === "active") {
+      matchesStatus = hasActiveAccess;
+    }
+
+    if (statusFilter === "inactive") {
+      matchesStatus = !hasActiveAccess;
+    }
+
+    if (!matchesStatus) {
+      return false;
+    }
+
+    return true;
   });
+
+  /*
+   * PAGINATION
+   */
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filtered.length / rowsPerPage)
+  );
+
+  const safeCurrentPage = Math.min(
+    currentPage,
+    totalPages
+  );
+
+  const startIndex =
+    (safeCurrentPage - 1) * rowsPerPage;
+
+  const endIndex = Math.min(
+    startIndex + rowsPerPage,
+    filtered.length
+  );
+
+  const paginatedRows = filtered.slice(
+    startIndex,
+    endIndex
+  );
+
+  /*
+   * Page numbers.
+   */
+  const pageNumbers = Array.from(
+    { length: totalPages },
+    (_, index) => index + 1
+  );
+
+  /*
+   * If a filter/search reduces the number of pages,
+   * keep the current page valid.
+   */
+  useEffect(() => {
+    if (
+      currentPage !== safeCurrentPage
+    ) {
+      setCurrentPage(safeCurrentPage);
+    }
+  }, [currentPage, safeCurrentPage]);
 
   return (
     <div className="admin-access-shell page-shell">
       <div className="admin-access-header">
         <div>
-          <span className="eyebrow">ADMIN ACCESS</span>
+          <span className="eyebrow">
+            ADMIN ACCESS
+          </span>
+
           <h1>User Access</h1>
-          <p className="muted">Manage users, course permissions and manual access.</p>
+
+          <p className="muted">
+            Manage users, course permissions and manual access.
+          </p>
         </div>
       </div>
 
       <div className="admin-access-toolbar panel">
         <div className="admin-toolbar-search">
           <Search size={16} />
-          <input aria-label="Search users" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name or email" />
+
+          <input
+            aria-label="Search users"
+            value={query}
+            onChange={(event) =>
+              setQuery(event.target.value)
+            }
+            placeholder="Search name or email"
+          />
         </div>
-        <select aria-label="Course filter" defaultValue="all">
-          <option value="all">Course</option>
+
+        {/* COURSE FILTER */}
+        <select
+          aria-label="Course filter"
+          value={courseFilter}
+          onChange={(event) =>
+            setCourseFilter(event.target.value)
+          }
+        >
+          <option value="all">
+            Course
+          </option>
+
+          {courseOptions.map(
+            ([courseId, courseTitle]) => (
+              <option
+                key={courseId}
+                value={courseId}
+              >
+                {courseTitle}
+              </option>
+            )
+          )}
         </select>
-        <select aria-label="Access status filter" defaultValue="all">
-          <option value="all">Access</option>
+
+        {/* ACCESS FILTER */}
+        <select
+          aria-label="Access status filter"
+          value={accessFilter}
+          onChange={(event) =>
+            setAccessFilter(event.target.value)
+          }
+        >
+          <option value="all">
+            Access
+          </option>
+
+          <option value="paid">
+            Paid
+          </option>
+
+          <option value="manual">
+            Manual
+          </option>
+
+          <option value="none">
+            No access
+          </option>
         </select>
-        <select aria-label="Status filter" defaultValue="all">
-          <option value="all">Status</option>
+
+        {/* STATUS FILTER */}
+        <select
+          aria-label="Status filter"
+          value={statusFilter}
+          onChange={(event) =>
+            setStatusFilter(event.target.value)
+          }
+        >
+          <option value="all">
+            Status
+          </option>
+
+          <option value="active">
+            Active
+          </option>
+
+          <option value="inactive">
+            Inactive
+          </option>
         </select>
       </div>
 
-      {error && <div className="notice error-banner"><strong>Unable to load user access</strong><span>{error}</span></div>}
+      {error && (
+        <div className="notice error-banner">
+          <strong>
+            Unable to load user access
+          </strong>
+
+          <span>{error}</span>
+        </div>
+      )}
 
       {loading ? (
-        <div className="empty-state">Loading course access records…</div>
+        <div className="empty-state">
+          Loading course access records…
+        </div>
       ) : filtered.length === 0 ? (
-        <div className="empty-state"><p>No matching user access records found.</p></div>
+        <div className="empty-state">
+          <p>
+            No matching user access records found.
+          </p>
+        </div>
       ) : (
-        <div className="admin-access-table panel">
-          <div className="admin-access-table-head">
-            <span>User</span>
-            <span>Courses</span>
-            <span>Access</span>
-            <span>Last active</span>
-            <span className="admin-access-head-action">Action</span>
+        <>
+          <div className="admin-access-table panel">
+            <div className="admin-access-table-head">
+              <span>User</span>
+              <span>Courses</span>
+              <span>Access</span>
+              <span>Last active</span>
+              <span className="admin-access-head-action">
+                Action
+              </span>
+            </div>
+
+            {paginatedRows.map((row) => {
+              const courseAccess =
+                getCourseAccess(row);
+
+              /*
+               * Prefer an active course for display.
+               * Otherwise use the first available course.
+               */
+              const firstCourse =
+                courseAccess.find(
+                  (course: any) =>
+                    course.is_active === true
+                ) || courseAccess[0];
+
+              /*
+               * Find the latest granted course.
+               */
+              const latestCourse =
+                [...courseAccess].sort(
+                  (a: any, b: any) => {
+                    const aTime = a?.granted_at
+                      ? new Date(
+                          a.granted_at
+                        ).getTime()
+                      : 0;
+
+                    const bTime = b?.granted_at
+                      ? new Date(
+                          b.granted_at
+                        ).getTime()
+                      : 0;
+
+                    return bTime - aTime;
+                  }
+                )[0];
+
+              const lastActive =
+                latestCourse?.granted_at
+                  ? new Date(
+                      latestCourse.granted_at
+                    ).toLocaleString("en-IN", {
+                      day: "numeric",
+                      month: "short",
+                      hour: "numeric",
+                      minute: "2-digit",
+                    })
+                  : "No recent activity";
+
+              const accessLabel = firstCourse
+                ? firstCourse.access_type ===
+                  "manual"
+                  ? "Manual"
+                  : "Paid"
+                : "No access";
+
+              const hasActiveAccess =
+                courseAccess.some(
+                  (course: any) =>
+                    course.is_active === true
+                );
+
+              const statusLabel =
+                hasActiveAccess
+                  ? "Active"
+                  : "Inactive";
+
+              return (
+                <article
+                  key={row.id}
+                  className="admin-access-row"
+                >
+                  <div className="admin-access-user">
+                    <div className="admin-user-avatar tiny">
+                      {String(
+                        row.full_name || "U"
+                      )
+                        .slice(0, 1)
+                        .toUpperCase()}
+                    </div>
+
+                    <div>
+                      <strong>
+                        {row.full_name}
+                      </strong>
+
+                      <small>
+                        {row.email}
+                      </small>
+                    </div>
+                  </div>
+
+                  <div className="admin-access-cell admin-access-course">
+                    <span className="admin-cell-label">
+                      Courses
+                    </span>
+
+                    <strong>
+                      {courseAccess.length}
+                    </strong>
+
+                    <small>
+                      {firstCourse
+                        ? firstCourse.course_title ||
+                          `Course #${firstCourse.course_id}`
+                        : "No course granted"}
+                    </small>
+                  </div>
+
+                  <div className="admin-access-cell admin-access-status">
+                    <span className="admin-cell-label">
+                      Access
+                    </span>
+
+                    <span
+                      className={`status-chip ${
+                        statusLabel === "Active"
+                          ? "status-live"
+                          : "status-archived"
+                      }`}
+                    >
+                      {statusLabel}
+                    </span>
+
+                    <small>
+                      {accessLabel}
+                    </small>
+                  </div>
+
+                  <div className="admin-access-cell admin-access-activity">
+                    <span className="admin-cell-label">
+                      Last active
+                    </span>
+
+                    <strong>
+                      {lastActive}
+                    </strong>
+                  </div>
+
+                  <div className="admin-access-actions">
+                    <Link
+                      className="button button-dark button-small"
+                      to={`/admin/user-access/${row.id}`}
+                    >
+                      Manage access
+                    </Link>
+                  </div>
+                </article>
+              );
+            })}
           </div>
 
-          {filtered.map((row) => {
-            const firstCourse = row.course_access[0];
-            const lastActive = firstCourse?.granted_at ? new Date(firstCourse.granted_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : 'No recent activity';
-            const accessLabel = firstCourse ? (firstCourse.access_type === 'manual' ? 'Manual' : 'Paid') : 'No access';
-            const statusLabel = firstCourse && firstCourse.is_active ? 'Active' : 'Inactive';
+          {/* PAGINATION */}
+          <div className="admin-access-pagination">
+            <div className="admin-pagination-info">
+              Showing{" "}
+              <strong>
+                {startIndex + 1}
+              </strong>
+              {"–"}
+              <strong>
+                {endIndex}
+              </strong>{" "}
+              of{" "}
+              <strong>
+                {filtered.length}
+              </strong>{" "}
+              users
+            </div>
 
-            return (
-              <article key={row.id} className="admin-access-row">
-                <div className="admin-access-user">
-                  <div className="admin-user-avatar tiny">{row.full_name.slice(0, 1).toUpperCase()}</div>
-                  <div>
-                    <strong>{row.full_name}</strong>
-                    <small>{row.email}</small>
-                  </div>
-                </div>
+            <div className="admin-pagination-controls">
+              <button
+                type="button"
+                className="button button-ghost button-small"
+                disabled={safeCurrentPage === 1}
+                onClick={() =>
+                  setCurrentPage(
+                    (page) =>
+                      Math.max(1, page - 1)
+                  )
+                }
+              >
+                Previous
+              </button>
 
-                <div className="admin-access-cell admin-access-course">
-                  <span className="admin-cell-label">Courses</span>
-                  <strong>{row.manual_access_count || 0}</strong>
-                  <small>{firstCourse ? (firstCourse.course_title || `Course #${firstCourse.course_id}`) : 'No course granted'}</small>
-                </div>
+              {pageNumbers.map((page) => (
+                <button
+                  key={page}
+                  type="button"
+                  className={`button button-small ${
+                    safeCurrentPage === page
+                      ? "button-dark"
+                      : "button-ghost"
+                  }`}
+                  onClick={() =>
+                    setCurrentPage(page)
+                  }
+                  aria-current={
+                    safeCurrentPage === page
+                      ? "page"
+                      : undefined
+                  }
+                >
+                  {page}
+                </button>
+              ))}
 
-                <div className="admin-access-cell admin-access-status">
-                  <span className="admin-cell-label">Access</span>
-                  <span className={`status-chip ${statusLabel === 'Active' ? 'status-live' : 'status-archived'}`}>{statusLabel}</span>
-                  <small>{accessLabel}</small>
-                </div>
-
-                <div className="admin-access-cell admin-access-activity">
-                  <span className="admin-cell-label">Last active</span>
-                  <strong>{lastActive}</strong>
-                </div>
-
-                <div className="admin-access-actions">
-                  <Link className="button button-dark button-small" to={`/admin/user-access/${row.id}`}>Manage access</Link>
-                </div>
-              </article>
-            );
-          })}
-        </div>
+              <button
+                type="button"
+                className="button button-ghost button-small"
+                disabled={
+                  safeCurrentPage === totalPages
+                }
+                onClick={() =>
+                  setCurrentPage(
+                    (page) =>
+                      Math.min(
+                        totalPages,
+                        page + 1
+                      )
+                  )
+                }
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
 }
-
 function AdminUserAccessDetailPage({ user }: { user: User | null }) {
   const { userId } = useParams();
   const [detail, setDetail] = useState<any>(null);
