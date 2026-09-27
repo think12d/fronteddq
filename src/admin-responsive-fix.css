@@ -1,121 +1,135 @@
 /* =========================================================================
-   ADMIN DASHBOARD — RESPONSIVE FIX
+   ADMIN FIX — MERGED, DEDUPED, FINAL
    =========================================================================
-   Import this file AFTER styles.css (see src/main.tsx) so these rules win
-   the cascade without needing !important or fighting existing selectors.
+   Replaces:
+     - "ADMIN DASHBOARD — RESPONSIVE FIX" (sections 1–21)
+     - "ADMIN SIDEBAR — FINAL, PORTABLE, ANIMATED VERSION"
+   into one file. All old .admin-sidebar rules (fixed/off-canvas drawer,
+   the 960px/1024px sidebar breakpoints, the icon-only-at-721-980px rule,
+   the light-theme sidebar block) have been removed — the new sidebar
+   below is self-sufficient and handles every breakpoint on its own
+   (full sidebar -> narrower -> icon rail -> bottom tab bar on mobile),
+   so it never needs the hamburger / off-canvas drawer any more.
 
-   Breakpoints used throughout this file:
-     ≤ 599px   phone
-     600–767px large phone / phablet
-     768–1023px tablet
-     1024–1279px small laptop
-     ≥ 1280px  laptop / desktop
-
-   What this fixes (verified against the current codebase, not guessed):
-     1. .admin-sidebar was `position: fixed; transform: translateX(-105%)`
-        at EVERY width, including desktop/laptop (min-width:981px rule at
-        styles.css:3059 never turned it back on). Admins on a laptop had
-        no visible sidebar at all unless they clicked the hamburger.
-        -> Below, the sidebar becomes a normal, always-visible column on
-           screens ≥1024px, and stays an off-canvas drawer below that.
-     2. .admin-access-table-head / .admin-access-row (the user list on
-        /admin/user-access) is a fixed 5-column CSS grid with no mobile
-        fallback anywhere in styles.css — it will overflow on any phone.
-        The JSX already renders <span class="admin-cell-label"> for each
-        cell (e.g. "Courses", "Access", "Last active") for exactly this
-        purpose, but .admin-cell-label has NO CSS rule at all right now,
-        so it just prints as plain run-on text on every screen size.
-        -> Below: hidden on desktop (where the header row already labels
-           columns), shown as a small caption above each value on mobile,
-           where the row becomes a stacked card.
-     3. .admin-grid-header / .admin-grid-row (course-access table inside
-        a user's detail page) and .login-history-header / .login-history-row
-        are the same problem: fixed multi-column grids, no responsive
-        fallback, and no per-cell labels in the markup to hook into.
-        -> Below: turned into labelled stacked cards on mobile using
-           ::before labels (column order is fixed in the code, so this is
-           safe), with a horizontal-scroll fallback as a safety net.
-     4. .admin-summary-grid (always 3 columns) and .admin-detail-layout
-        (always a fixed 1.2fr / 0.9fr two-column split) have no responsive
-        rule anywhere — both get cramped/overflow on phone and tablet.
-     5. .admin-metric-grid / .admin-stats (4 columns) only ever drop to 2
-        columns at ≤980px — cramped on narrow phones. Added a 1-column
-        step for very small screens.
-     6. .admin-form-grid (always 2 columns) never collapses to 1 column.
+   Load order: import this file LAST, after styles.css.
    ========================================================================= */
 
-/* -------------------------------------------------------------------------
-   1. Sidebar / shell layout
-   ---------------------------------------------------------------------- */
 
-/* Below 1024px: keep the existing off-canvas drawer behaviour, just make
-   sure it's consistent and the backdrop/menu button always exist. */
+/* ==========================================================================
+   PART A — SHELL LAYOUT (sidebar + main content)
+   The sidebar itself is always visible in some form (full, narrow, icon
+   rail, or bottom bar), so .admin-shell is a plain flex row everywhere and
+   the old hamburger / backdrop drawer system is disabled outright.
+   ========================================================================== */
+
+.admin-shell {
+  display: flex;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: #f4f6fb;
+}
+
+.admin-main {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The hamburger button and its backdrop are still in the JSX but are no
+   longer needed — the new sidebar collapses responsively on its own. */
+.admin-menu-button,
+.admin-drawer-backdrop {
+  display: none !important;
+}
+
+/* Leave room at the bottom of the page on phones, since the sidebar
+   becomes a fixed bottom tab bar there (see Part I). */
+@media (max-width: 600px) {
+  .admin-main {
+    padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+
+/* ==========================================================================
+   PART B — TOPBAR
+   ========================================================================== */
+
+.admin-topbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 24px;
+  padding-top: calc(16px + env(safe-area-inset-top, 0px));
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.admin-kicker {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  color: #6366f1;
+}
+
+.admin-topbar-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.admin-live-indicator {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #059669;
+  background: rgba(16, 185, 129, 0.1);
+  padding: 6px 12px;
+  border-radius: 999px;
+}
+
+.admin-live-indicator span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2);
+  animation: admin-pulse-dot 1.6s infinite;
+}
+
+@keyframes admin-pulse-dot {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2); }
+  50%      { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0.05); }
+}
+
 @media (max-width: 1023px) {
-  .admin-menu-button {
-    display: inline-flex;
-  }
-  .admin-shell {
-    display: block;
-  }
-  .admin-sidebar {
-    position: fixed;
-    inset: 0 auto 0 0;
-    z-index: 80;
-    transform: translateX(-105%);
-    transition: transform 220ms ease-out;
-  }
-  .admin-sidebar.is-open {
-    transform: translateX(0);
-  }
-  .admin-main {
-    width: 100%;
-  }
+  .admin-topbar { padding: 12px 16px; padding-top: calc(12px + env(safe-area-inset-top, 0px)); }
 }
 
-/* 1024px and up: persistent, always-visible sidebar as a real grid column.
-   This is the actual fix for "the laptop view has no sidebar". */
-@media (min-width: 1024px) {
-  .admin-menu-button,
-  .admin-drawer-backdrop {
-    display: none !important;
-  }
-
-  .admin-shell {
-    display: grid;
-    grid-template-columns: 264px minmax(0, 1fr);
-    align-items: start;
-    min-height: 100vh;
-  }
-
-  .admin-sidebar {
-    position: sticky;
-    top: 0;
-    inset: auto;
-    z-index: 1;
-    width: 100%;
-    height: 100vh;
-    transform: none !important;
-    box-shadow: none;
-    border-right: 1px solid rgba(255, 255, 255, 0.08);
-  }
-
-  .admin-main {
-    width: 100%;
-    min-width: 0;
-  }
+@media (max-width: 480px) {
+  .admin-topbar-title { font-size: 14px; }
+  .admin-live-indicator span:not(:first-child) { display: none; }
 }
 
-/* Small laptop band: keep the sidebar but a little narrower so content
-   has more room between 1024–1279px. */
-@media (min-width: 1024px) and (max-width: 1279px) {
-  .admin-shell {
-    grid-template-columns: 224px minmax(0, 1fr);
-  }
+@media (max-width: 360px) {
+  .admin-topbar { padding-top: calc(10px + env(safe-area-inset-top, 0px)); }
 }
 
-/* -------------------------------------------------------------------------
-   2. Admin user-access table -> stacked cards on phone/phablet
-   ---------------------------------------------------------------------- */
+
+/* ==========================================================================
+   PART C — USER-ACCESS TABLE -> stacked cards on phone/phablet
+   ========================================================================== */
 
 .admin-cell-label {
   display: none;
@@ -165,9 +179,10 @@
   }
 }
 
-/* -------------------------------------------------------------------------
-   3. Course-access grid + login-history grid -> stacked cards on mobile
-   ---------------------------------------------------------------------- */
+
+/* ==========================================================================
+   PART D — COURSE-ACCESS GRID + LOGIN-HISTORY GRID -> stacked cards
+   ========================================================================== */
 
 @media (max-width: 767px) {
   .admin-grid-header,
@@ -192,7 +207,6 @@
     gap: 2px;
   }
 
-  /* Column order in the JSX is fixed, so labelling by position is safe. */
   .admin-grid-row span:nth-child(1)::before { content: "Course"; }
   .admin-grid-row span:nth-child(2)::before { content: "Access type"; }
   .admin-grid-row span:nth-child(3)::before { content: "Live"; }
@@ -214,9 +228,6 @@
   }
 }
 
-/* Safety net for the 768–1023px band: don't stack (there's enough room),
-   but let the grid scroll horizontally instead of overflowing the page
-   if a value is unexpectedly wide. */
 @media (min-width: 768px) and (max-width: 1023px) {
   .admin-access-grid-table,
   .login-history-table {
@@ -233,9 +244,10 @@
   }
 }
 
-/* -------------------------------------------------------------------------
-   4. Summary grid + detail layout (two-column split pages)
-   ---------------------------------------------------------------------- */
+
+/* ==========================================================================
+   PART E — SUMMARY GRID + DETAIL LAYOUT (two-column split pages)
+   ========================================================================== */
 
 @media (max-width: 1023px) {
   .admin-detail-layout {
@@ -255,9 +267,10 @@
   }
 }
 
-/* -------------------------------------------------------------------------
-   5. Metric / stat grids — add a true 1-column step for small phones
-   ---------------------------------------------------------------------- */
+
+/* ==========================================================================
+   PART F — METRIC / STAT GRIDS
+   ========================================================================== */
 
 @media (max-width: 479px) {
   .admin-metric-grid,
@@ -266,9 +279,10 @@
   }
 }
 
-/* -------------------------------------------------------------------------
-   6. Form grid — collapse to a single column below tablet width
-   ---------------------------------------------------------------------- */
+
+/* ==========================================================================
+   PART G — FORM GRID
+   ========================================================================== */
 
 @media (max-width: 767px) {
   .admin-form-grid {
@@ -276,40 +290,35 @@
   }
 }
 
-/* -------------------------------------------------------------------------
-   7. General safety nets across the admin area
-   ---------------------------------------------------------------------- */
+
+/* ==========================================================================
+   PART H — GENERAL SAFETY NETS ACROSS THE ADMIN AREA
+   ========================================================================== */
 
 @media (max-width: 767px) {
-  /* Auth/login split screen: stack instead of side-by-side. */
   .admin-auth-grid {
     grid-template-columns: minmax(0, 1fr) !important;
   }
 
-  /* Hero + quicklink rows: don't let flex items force horizontal scroll. */
   .admin-hero {
     grid-template-columns: minmax(0, 1fr);
   }
+
   .admin-quicklink-row {
     flex-wrap: wrap;
   }
 
-  /* Modals: full-width sheet with breathing room on small screens. */
   .admin-confirm-modal {
     width: min(94vw, 440px);
     padding: 18px 16px;
   }
 
-  /* Any table-like element we haven't explicitly handled above still gets
-     a horizontal-scroll fallback instead of breaking page layout. */
   .admin-table-panel {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
 }
 
-/* Comfortable minimum tap targets for admin action buttons on touch
-   devices (phone + tablet). */
 @media (max-width: 1023px) {
   .admin-nav a,
   .admin-tab-button,
@@ -317,84 +326,35 @@
   .admin-learner-link {
     min-height: 44px;
   }
-}
 
-/* -------------------------------------------------------------------------
-   8. "CONTROL CENTER" / sidebar misalignment on tablet ("pad") widths
-   ---------------------------------------------------------------------- */
-/* styles.css:6383 has a leftover rule for 721–980px that collapses the
-   sidebar to a 220px ICON-ONLY rail (font-size: 0 on every label,
-   including .admin-sidebar-label = "CONTROL CENTER") and centers the
-   nav items. That rule was written for a persistent sidebar layout, but
-   the sidebar in this range is actually an off-canvas drawer opened by
-   the hamburger button — so instead of a compact rail, opening it shows
-   a narrow strip with invisible text and icons pushed out of place. This
-   is the misalignment on tablet/pad widths.
-
-   Below 1024px the drawer has room for the full label text (its own
-   width is capped at min(304px, 100vw-48px)), so we restore the normal,
-   fully-labelled, left-aligned layout for the whole drawer range and
-   drop the icon-only mode entirely. */
-@media (max-width: 1023px) {
-  .admin-sidebar {
-    width: min(304px, calc(100vw - 48px));
-    padding-inline: 16px;
+  .admin-main .button-small {
+    min-height: 40px;
+    padding: 9px 14px;
   }
 
-  .admin-sidebar .admin-brand span:last-child,
-  .admin-sidebar .admin-sidebar-label,
-  .admin-sidebar .admin-nav span,
-  .admin-sidebar .admin-user > span:last-child,
-  .admin-sidebar .admin-learner-link,
-  .admin-sidebar .admin-logout {
-    font-size: revert;
-  }
-
-  .admin-sidebar-label {
-    font-size: 0.7rem;
-  }
-
-  .admin-sidebar .admin-nav a,
-  .admin-sidebar .admin-learner-link,
-  .admin-sidebar .admin-logout {
-    justify-content: flex-start;
-    padding-inline: 12px;
-  }
-
-  .admin-sidebar .admin-user {
-    justify-content: flex-start;
-  }
-
-  /* Keep the brand row, label and nav items cleanly left-aligned and
-     evenly spaced regardless of exact width within the drawer. */
-  .admin-brand {
-    align-items: center;
+  .admin-course-actions,
+  .form-action-row,
+  .admin-access-actions,
+  .upload-actions-row {
     gap: 10px;
   }
 
-  .admin-sidebar-label {
-    margin-top: 4px;
-  }
-
-  .admin-nav {
-    display: grid;
-    gap: 6px;
-  }
-
-  .admin-nav a {
+  .form-action-row {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 10px;
   }
 }
 
-/* =========================================================================
-   OVERVIEW, PAYMENTS, RECORDED VIDEOS — same treatment
-   ========================================================================= */
+.admin-confirm-modal,
+.rv2-modal {
+  padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+}
 
-/* -------------------------------------------------------------------------
-   9. Overview page
-   ---------------------------------------------------------------------- */
+
+/* ==========================================================================
+   PART I — OVERVIEW PAGE
+   ========================================================================== */
 
 @media (max-width: 959px) {
   .material-manager {
@@ -411,9 +371,10 @@
   }
 }
 
-/* -------------------------------------------------------------------------
-   10. Payments page
-   ---------------------------------------------------------------------- */
+
+/* ==========================================================================
+   PART J — PAYMENTS PAGE
+   ========================================================================== */
 
 .payments-toolbar {
   display: flex;
@@ -444,9 +405,10 @@
   }
 }
 
-/* -------------------------------------------------------------------------
-   11. Recorded videos admin page
-   ---------------------------------------------------------------------- */
+
+/* ==========================================================================
+   PART K — RECORDED VIDEOS ADMIN PAGE
+   ========================================================================== */
 
 @media (max-width: 900px) {
   .recorded-admin-toolbar {
@@ -469,9 +431,10 @@
   }
 }
 
-/* =========================================================================
-   COURSE CREATE/EDIT FORM & BATCH SALES CONTROLS
-   ========================================================================= */
+
+/* ==========================================================================
+   PART L — COURSE CREATE/EDIT FORM & BATCH SALES CONTROLS
+   ========================================================================== */
 
 .inline-builder {
   display: grid;
@@ -510,9 +473,10 @@
   flex-shrink: 0;
 }
 
-/* =========================================================================
-   USER ACCESS FILTER TOOLBAR
-   ========================================================================= */
+
+/* ==========================================================================
+   PART M — USER ACCESS FILTER TOOLBAR
+   ========================================================================== */
 
 @media (max-width: 599px) {
   .admin-access-toolbar {
@@ -526,64 +490,10 @@
   }
 }
 
-/* =========================================================================
-   GENERAL ADMIN BUTTON / TOUCH-TARGET CLEANUP
-   ========================================================================= */
 
-@media (max-width: 1023px) {
-  .admin-main .button-small {
-    min-height: 40px;
-    padding: 9px 14px;
-  }
-
-  .admin-course-actions,
-  .form-action-row,
-  .admin-access-actions,
-  .upload-actions-row {
-    gap: 10px;
-  }
-
-  .form-action-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-  }
-}
-
-/* =========================================================================
-   ROUND 3 — Payments quicklink card, module "Add file" rows, Live Class
-   Management buttons.
-   =========================================================================
-   Correction to the note above section 9: the earlier claim that live
-   broadcasts "were already built with auto-fit grids and flex-wrap
-   throughout... needed no changes" missed two real gaps, found now on a
-   closer pass through AdminLiveDashboard.tsx:
-     12. .admin-quicklink-card / .admin-quicklink-icon (the "Payments &
-         receipts" card on the Overview page) have ZERO CSS anywhere —
-         not unresponsive, genuinely unstyled, rendering as raw inline
-         link/icon/text. Only the wrapper (.admin-quicklink-row) had a
-         flex-wrap rule; the card itself never had a base style.
-     13. .directory-admin-line (module/topic row in the Materials
-         manager) is a plain flex row with no wrap. .directory-action-row
-         (the "Add file" / rename / delete buttons) has no flex-shrink:0
-         and no wrap rule, so on phone/tablet the module name next to it
-         squeezes the action row, crushing the "Add file" icon+text
-         together — that's the "not good with text" look reported.
-     14. .button-xs, used only by the mute/unmute button inside the Live
-         Class Management moderation drawer, has NO CSS rule anywhere —
-         it falls back to a bare unstyled <button>, next to fully styled
-         toggle checkboxes.
-     15. .admin-live-header (the "Live Class Management" title bar) uses
-         an <h2>, but the only mobile font-size override anywhere in this
-         file targets ".live-admin-dashboard h1" — a different element —
-         so the ~32px heading never shrinks on phones, and the header row
-         (title+paragraph vs. the "Refresh Roster" button) has no
-         flex-wrap, so it can crowd that button on narrow screens.
-   ========================================================================= */
-
-/* -------------------------------------------------------------------------
-   12. Payments & receipts quicklink card (Overview page) — was unstyled
-   ---------------------------------------------------------------------- */
+/* ==========================================================================
+   PART N — PAYMENTS QUICKLINK CARD (Overview page)
+   ========================================================================== */
 
 .admin-quicklink-row {
   display: flex;
@@ -662,9 +572,16 @@
   }
 }
 
-/* -------------------------------------------------------------------------
-   13. Materials manager — module/topic row so "Add file" etc. don't crush
-   ---------------------------------------------------------------------- */
+@media (max-width: 360px) {
+  .admin-quicklink-card {
+    padding: 10px 12px;
+  }
+}
+
+
+/* ==========================================================================
+   PART O — MATERIALS MANAGER (module/topic row)
+   ========================================================================== */
 
 @media (max-width: 767px) {
   .directory-admin-line {
@@ -679,7 +596,7 @@
   .directory-action-row {
     flex-wrap: wrap;
     flex-basis: 100%;
-    padding-left: 38px; /* align under the name, past the bullet icon */
+    padding-left: 38px;
     box-sizing: border-box;
   }
 
@@ -694,9 +611,10 @@
   }
 }
 
-/* -------------------------------------------------------------------------
-   14. .button-xs — was completely unstyled (moderation mute/unmute button)
-   ---------------------------------------------------------------------- */
+
+/* ==========================================================================
+   PART P — .button-xs (moderation mute/unmute button)
+   ========================================================================== */
 
 .button-xs {
   display: inline-flex;
@@ -735,10 +653,10 @@
   }
 }
 
-/* -------------------------------------------------------------------------
-   15. Live Class Management header — h2 never shrank on phone, and the
-       title block vs. "Refresh Roster" button never wrapped.
-   ---------------------------------------------------------------------- */
+
+/* ==========================================================================
+   PART Q — LIVE CLASS MANAGEMENT HEADER
+   ========================================================================== */
 
 @media (max-width: 640px) {
   .admin-live-header {
@@ -754,131 +672,25 @@
   }
 }
 
-/* Live class card grid: guarantee a single column below ~340px so the
-   290px card min-width doesn't overflow the smallest phones. */
 @media (max-width: 359px) {
   .admin-live-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 
-/* =========================================================================
-   ROUND 4 — CROSS-DEVICE PORTABILITY LAYER
-   =========================================================================
-   This section makes the layout above ACTUALLY portable across real
-   devices, not just across viewport widths. It targets the selectors and
-   breakpoints already established in sections 1–15 above — it does not
-   introduce a second, conflicting sidebar system.
 
-   NOTE: an earlier duplicate ".admin-shell / .admin-sidebar / .admin-topbar"
-   block (using !important, display:flex, and a 960px sidebar breakpoint)
-   has been removed from this file. It conflicted with section 1's grid-based
-   sidebar and its 1024px breakpoint, and its !important rules would have
-   partially undone the "sidebar invisible on desktop" fix documented at the
-   top of this file. If you still have that block in styles.css, delete it
-   there too — this file already covers the same ground correctly.
-
-   Covers:
-    16. Dynamic viewport height fallback (100dvh with 100vh fallback) for
-        the sidebar/shell, so old Safari/WebView don't collapse it.
-    17. Safe-area insets so content isn't hidden under a notch or the
-        home-indicator bar on iPhone-class devices.
-    18. -webkit- prefixes for backdrop-filter (drawer backdrop / sticky
-        topbar) so the blur doesn't just disappear on older Safari.
-    19. prefers-reduced-motion support for the drawer slide, hover lifts,
-        and any pulsing status dot.
-    20. Momentum scrolling + scroll-chaining containment for the sidebar
-        drawer and the horizontal-scroll table fallbacks already added
-        in sections 3 and 7.
-    21. Extra breakpoints for very small phones (≤360px) and short
-        landscape phones, where the 1024px/768px/599px steps above leave
-        things cramped.
-   ========================================================================= */
-
-/* -------------------------------------------------------------------------
-   16. Viewport height fallback
-   ---------------------------------------------------------------------- */
-
-@media (min-width: 1024px) {
-  .admin-shell {
-    min-height: 100vh;
-    min-height: 100dvh;
-  }
-  .admin-sidebar {
-    height: 100vh;
-    height: 100dvh;
-  }
-}
-
-@media (max-width: 1023px) {
-  .admin-sidebar {
-    height: 100vh;
-    height: 100dvh;
-  }
-}
-
-/* -------------------------------------------------------------------------
-   17. Safe-area insets (notch / home-indicator)
-   ---------------------------------------------------------------------- */
-
-.admin-sidebar {
-  padding-top: env(safe-area-inset-top, 0px);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-
-.admin-topbar {
-  padding-top: calc(16px + env(safe-area-inset-top, 0px));
-}
-
-@media (max-width: 1023px) {
-  .admin-topbar {
-    padding-top: calc(12px + env(safe-area-inset-top, 0px));
-  }
-}
-
-@media (max-width: 360px) {
-  .admin-topbar {
-    padding-top: calc(10px + env(safe-area-inset-top, 0px));
-  }
-}
-
-.admin-confirm-modal,
-.rv2-modal {
-  padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
-}
-
-/* -------------------------------------------------------------------------
-   18. Backdrop-filter Safari support
-   ---------------------------------------------------------------------- */
-
-.admin-topbar,
-.admin-drawer-backdrop {
-  -webkit-backdrop-filter: blur(10px);
-}
-
-@media (max-width: 1023px) {
-  .admin-drawer-backdrop {
-    -webkit-backdrop-filter: blur(2px);
-    backdrop-filter: blur(2px);
-  }
-}
-
-/* -------------------------------------------------------------------------
-   19. Reduced motion
-   ---------------------------------------------------------------------- */
+/* ==========================================================================
+   PART R — GLOBAL POLISH (motion, scrolling, small-screen edge cases)
+   ========================================================================== */
 
 @media (prefers-reduced-motion: reduce) {
-  .admin-sidebar,
   .admin-nav a,
   .admin-logout,
-  .admin-menu-button,
-  .admin-drawer-backdrop,
   .admin-quicklink-card {
     transition: none !important;
   }
   .admin-nav a:hover,
   .admin-logout:hover,
-  .admin-menu-button:hover,
   .admin-quicklink-card:hover {
     transform: none !important;
   }
@@ -887,835 +699,610 @@
   }
 }
 
-/* -------------------------------------------------------------------------
-   20. Scroll behaviour on touch devices
-   ---------------------------------------------------------------------- */
-
-.admin-sidebar {
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-}
-
 .admin-access-grid-table,
 .login-history-table,
 .admin-table-panel {
   overscroll-behavior-x: contain;
 }
 
-/* -------------------------------------------------------------------------
-   21. Very small / short-landscape phones
-   ---------------------------------------------------------------------- */
-
-@media (max-width: 360px) {
-  .admin-quicklink-card {
-    padding: 10px 12px;
-  }
-  .admin-sidebar {
-    width: min(280px, calc(100vw - 32px));
-  }
-}
-
 @media (max-height: 480px) and (orientation: landscape) and (max-width: 1023px) {
-  .admin-sidebar {
-    padding-top: max(10px, env(safe-area-inset-top, 0px));
-  }
   .admin-nav a {
     min-height: 38px;
   }
 }
-/* =========================================================
-   JRF HUNTERS ADMIN SIDEBAR
-   PREMIUM LIGHT / RESPONSIVE / LAPTOP FRIENDLY
-   ========================================================= */
+
+
+/* ==========================================================================
+   PART I — SIDEBAR (final, self-contained, replaces all prior versions)
+   Scope: .admin-sidebar and its children ONLY.
+
+   Logo path: update --sb-logo if logo.png isn't at public/assets/logo.png
+   (served at /assets/logo.png).
+   ========================================================================== */
 
 .admin-sidebar {
-  position: fixed !important;
-  inset: 0 auto 0 0 !important;
-  z-index: 1000 !important;
-
-  display: flex !important;
-  flex-direction: column !important;
-
-  width: clamp(220px, 18vw, 270px) !important;
-  height: 100dvh !important;
-
-  box-sizing: border-box !important;
-  min-width: 0 !important;
-  min-height: 0 !important;
-
-  padding: clamp(16px, 1.5vw, 22px) clamp(10px, 1vw, 16px) !important;
-
-  overflow: hidden !important;
-
-  background:
-    linear-gradient(
-      180deg,
-      #ffffff 0%,
-      #fbfdfb 52%,
-      #f5faf6 100%
-    ) !important;
-
-  border-right: 1px solid #e2ebe5 !important;
-
-  box-shadow:
-    8px 0 30px rgba(25, 70, 43, .035),
-    inset -1px 0 0 rgba(255,255,255,.9) !important;
-
-  color: #183d2b !important;
-
-  transition:
-    width .35s ease,
-    box-shadow .35s ease !important;
+  --sb-bg-1: #ffffff;
+  --sb-bg-2: #fbfdfb;
+  --sb-bg-3: #f3faf5;
+  --sb-border: #e3ede6;
+  --sb-text: #1c4430;
+  --sb-text-dim: #7c8f83;
+  --sb-text-faint: #9caea3;
+  --sb-accent-1: #1c5c37;
+  --sb-accent-2: #34a866;
+  --sb-accent-glow: rgba(52, 168, 102, 0.35);
+  --sb-danger: #c65a5a;
+  --sb-radius: 14px;
+  --sb-transition-fast: 180ms cubic-bezier(.4,0,.2,1);
+  --sb-transition-med: 320ms cubic-bezier(.4,0,.2,1);
+  --sb-logo: url("/assets/logo.png");
 }
 
+.admin-sidebar {
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 100;
 
-/* =========================================================
-   BRAND
-   ========================================================= */
+  display: flex;
+  flex-direction: column;
+
+  width: clamp(230px, 18vw, 272px);
+  height: 100vh;
+  height: 100dvh;
+
+  box-sizing: border-box;
+  padding: 20px 14px;
+  padding-top: calc(20px + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+
+  background: linear-gradient(180deg, var(--sb-bg-1) 0%, var(--sb-bg-2) 55%, var(--sb-bg-3) 100%);
+  border-right: 1px solid var(--sb-border);
+  box-shadow: 10px 0 32px rgba(20, 60, 40, 0.05), inset -1px 0 0 rgba(255,255,255,0.9);
+
+  color: var(--sb-text);
+
+  overflow: hidden;
+  transition: width var(--sb-transition-med), box-shadow var(--sb-transition-med);
+
+  animation: sb-fade-in 420ms ease both;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+@keyframes sb-fade-in {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
 
 .admin-sidebar .admin-brand {
-  display: flex !important;
-  align-items: center !important;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 
-  gap: 11px !important;
+  padding: 10px;
+  margin-bottom: 20px;
+  border-radius: var(--sb-radius);
 
-  width: 100% !important;
-  min-width: 0 !important;
+  color: var(--sb-text);
+  text-decoration: none;
 
-  box-sizing: border-box !important;
-
-  padding: 9px !important;
-  margin-bottom: 22px !important;
-
-  border-radius: 14px !important;
-
-  color: #173d2b !important;
-  text-decoration: none !important;
-
-  transition:
-    background .25s ease,
-    transform .25s ease !important;
+  transition: background var(--sb-transition-fast), transform var(--sb-transition-fast);
 }
 
 .admin-sidebar .admin-brand:hover {
-  background: #f1f8f3 !important;
-  transform: translateY(-1px) !important;
+  background: var(--sb-bg-3);
+  transform: translateY(-1px);
 }
-
-
-/* BRAND ICON */
 
 .admin-sidebar .admin-brand-mark {
-  position: relative !important;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  flex: 0 0 42px;
+  border-radius: 12px;
 
-  width: 42px !important;
-  height: 42px !important;
+  background-color: #ffffff;
+  background-image: var(--sb-logo);
+  background-size: 68%;
+  background-position: center;
+  background-repeat: no-repeat;
 
-  min-width: 42px !important;
-  flex: 0 0 42px !important;
+  box-shadow: 0 6px 16px var(--sb-accent-glow), inset 0 0 0 1px var(--sb-border);
 
-  border-radius: 12px !important;
-
-  color: #fff !important;
-
-  background:
-    linear-gradient(
-      145deg,
-      #173e2b,
-      #2d8952
-    ) !important;
-
-  box-shadow:
-    0 6px 15px rgba(31,112,63,.18) !important;
-
-  transition:
-    transform .35s ease,
-    box-shadow .35s ease !important;
-}
-
-.admin-sidebar .admin-brand:hover .admin-brand-mark {
-  transform: rotate(-3deg) scale(1.04) !important;
-
-  box-shadow:
-    0 9px 20px rgba(31,112,63,.24) !important;
+  transition: transform var(--sb-transition-med), box-shadow var(--sb-transition-med);
+  overflow: hidden;
 }
 
 .admin-sidebar .admin-brand-mark svg {
-  width: 19px !important;
-  height: 19px !important;
+  display: none;
 }
 
+.admin-sidebar .admin-brand-mark::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.55) 50%, transparent 70%);
+  transform: translateX(-120%);
+  transition: transform 600ms ease;
+}
 
-/* BRAND TEXT */
+.admin-sidebar .admin-brand:hover .admin-brand-mark {
+  transform: rotate(-4deg) scale(1.06);
+  box-shadow: 0 10px 22px var(--sb-accent-glow), inset 0 0 0 1px var(--sb-border);
+}
+
+.admin-sidebar .admin-brand:hover .admin-brand-mark::after {
+  transform: translateX(120%);
+}
 
 .admin-sidebar .admin-brand > span:last-child {
-  display: flex !important;
-  flex-direction: column !important;
-
-  min-width: 0 !important;
-
-  gap: 2px !important;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
 }
 
 .admin-sidebar .admin-brand strong {
-  display: block !important;
-
-  color: #153c29 !important;
-
-  font-size: clamp(11px, .8vw, 13px) !important;
-  font-weight: 850 !important;
-
-  line-height: 1.15 !important;
-  letter-spacing: .45px !important;
-
-  white-space: nowrap !important;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  color: var(--sb-text);
+  white-space: nowrap;
 }
 
 .admin-sidebar .admin-brand small {
-  display: block !important;
-
-  color: #819187 !important;
-
-  font-size: 9px !important;
-  font-weight: 600 !important;
-
-  white-space: nowrap !important;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--sb-text-faint);
+  white-space: nowrap;
 }
 
-
-/* =========================================================
-   LABEL
-   ========================================================= */
-
 .admin-sidebar .admin-sidebar-label {
-  display: flex !important;
-  align-items: center !important;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 
-  gap: 8px !important;
+  margin: 0 8px 10px;
+  color: var(--sb-text-faint);
 
-  margin: 0 9px 9px !important;
-
-  color: #91a098 !important;
-
-  font-size: 8px !important;
-  font-weight: 850 !important;
-
-  letter-spacing: 1.35px !important;
-
-  white-space: nowrap !important;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.4px;
+  white-space: nowrap;
 }
 
 .admin-sidebar .admin-sidebar-label::after {
-  content: "" !important;
-
-  height: 1px !important;
-
-  flex: 1 !important;
-
-  background:
-    linear-gradient(
-      90deg,
-      #dce7df,
-      transparent
-    ) !important;
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: linear-gradient(90deg, var(--sb-border), transparent);
 }
-
-
-/* =========================================================
-   NAV
-   ========================================================= */
 
 .admin-sidebar .admin-nav {
-  display: flex !important;
-  flex-direction: column !important;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 
-  gap: 4px !important;
+  flex: 1 1 auto;
+  min-height: 0;
 
-  flex: 1 1 auto !important;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 
-  min-height: 0 !important;
-
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-
-  scrollbar-width: thin !important;
-  scrollbar-color: #d6e3da transparent !important;
+  scrollbar-width: thin;
+  scrollbar-color: #d6e3da transparent;
 }
 
-.admin-sidebar .admin-nav::-webkit-scrollbar {
-  width: 3px !important;
-}
-
+.admin-sidebar .admin-nav::-webkit-scrollbar { width: 4px; }
 .admin-sidebar .admin-nav::-webkit-scrollbar-thumb {
-  background: #d6e3da !important;
-  border-radius: 10px !important;
+  background: #d6e3da;
+  border-radius: 10px;
 }
-
-
-/* NAV ITEM */
 
 .admin-sidebar .admin-nav a {
-  position: relative !important;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 
-  display: flex !important;
-  align-items: center !important;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid transparent;
 
-  gap: 11px !important;
-
-  width: 100% !important;
-  min-width: 0 !important;
-
-  min-height: 43px !important;
-
-  box-sizing: border-box !important;
-
-  padding: 9px 11px !important;
-
-  border-radius: 11px !important;
-
-  color: #64766a !important;
-
-  font-size: clamp(11px, .78vw, 12px) !important;
-  font-weight: 650 !important;
-
-  text-decoration: none !important;
+  color: var(--sb-text-dim);
+  font-size: 13px;
+  font-weight: 650;
+  text-decoration: none;
 
   transition:
-    background .25s ease,
-    color .25s ease,
-    transform .25s ease,
-    box-shadow .25s ease !important;
+    background var(--sb-transition-fast),
+    color var(--sb-transition-fast),
+    transform var(--sb-transition-fast),
+    border-color var(--sb-transition-fast),
+    box-shadow var(--sb-transition-fast);
+
+  animation: sb-nav-in 400ms ease both;
 }
 
+.admin-sidebar .admin-nav a:nth-child(1) { animation-delay: 40ms; }
+.admin-sidebar .admin-nav a:nth-child(2) { animation-delay: 90ms; }
+.admin-sidebar .admin-nav a:nth-child(3) { animation-delay: 140ms; }
+.admin-sidebar .admin-nav a:nth-child(4) { animation-delay: 190ms; }
+.admin-sidebar .admin-nav a:nth-child(5) { animation-delay: 240ms; }
 
-/* ICON */
+@keyframes sb-nav-in {
+  from { opacity: 0; transform: translateX(-10px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
 
 .admin-sidebar .admin-nav a svg {
-  width: 17px !important;
-  height: 17px !important;
-
-  min-width: 17px !important;
-
-  color: #819188 !important;
-
-  stroke-width: 1.9 !important;
-
-  transition:
-    color .25s ease,
-    transform .25s ease !important;
+  width: 17px;
+  height: 17px;
+  min-width: 17px;
+  color: var(--sb-text-faint);
+  stroke-width: 1.9;
+  transition: color var(--sb-transition-fast), transform var(--sb-transition-fast);
 }
-
-
-/* TEXT */
 
 .admin-sidebar .admin-nav a span {
-  min-width: 0 !important;
-
-  overflow: hidden !important;
-
-  text-overflow: ellipsis !important;
-
-  white-space: nowrap !important;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-
-/* HOVER */
-
 .admin-sidebar .admin-nav a:hover {
-  color: #205e3a !important;
-
-  background: #f0f8f2 !important;
-
-  transform: translateX(2px) !important;
-
-  box-shadow:
-    0 3px 10px rgba(32,104,57,.045) !important;
+  color: var(--sb-accent-1);
+  background: var(--sb-bg-3);
+  transform: translateX(3px);
+  box-shadow: 0 4px 12px rgba(52,168,102,0.08);
 }
 
 .admin-sidebar .admin-nav a:hover svg {
-  color: #299456 !important;
-
-  transform: scale(1.07) !important;
+  color: var(--sb-accent-2);
+  transform: scale(1.1) rotate(-4deg);
 }
 
-
-/* ACTIVE */
-
-.admin-sidebar .admin-nav a.active {
-  color: #195d38 !important;
-
-  background:
-    linear-gradient(
-      100deg,
-      #e8f6ec,
-      #f2f9f4
-    ) !important;
-
-  border: 1px solid #d4e9da !important;
-
-  box-shadow:
-    0 4px 13px rgba(34,117,63,.065),
-    inset 0 1px 0 rgba(255,255,255,.9) !important;
+.admin-sidebar .admin-nav a:active {
+  transform: translateX(1px) scale(0.98);
 }
 
-.admin-sidebar .admin-nav a.active::before {
-  content: "" !important;
-
-  position: absolute !important;
-
-  left: 0 !important;
-  top: 50% !important;
-
-  width: 3px !important;
-  height: 21px !important;
-
-  transform: translateY(-50%) !important;
-
-  border-radius: 0 5px 5px 0 !important;
-
-  background: #299657 !important;
+.admin-sidebar .admin-nav a.active,
+.admin-sidebar .admin-nav a[aria-current="page"] {
+  color: #195d38;
+  background: linear-gradient(100deg, #e8f6ec, #f2f9f4);
+  border-color: #d4e9da;
+  box-shadow: 0 5px 16px rgba(34,117,63,0.09), inset 0 1px 0 rgba(255,255,255,0.9);
 }
 
-.admin-sidebar .admin-nav a.active svg {
-  color: #218a4d !important;
-
-  stroke-width: 2.1 !important;
+.admin-sidebar .admin-nav a.active::before,
+.admin-sidebar .admin-nav a[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 3px;
+  height: 22px;
+  transform: translateY(-50%);
+  border-radius: 0 6px 6px 0;
+  background: var(--sb-accent-2);
+  box-shadow: 0 0 10px var(--sb-accent-glow);
+  animation: sb-active-pulse 2.4s ease-in-out infinite;
 }
 
+@keyframes sb-active-pulse {
+  0%, 100% { box-shadow: 0 0 6px var(--sb-accent-glow); }
+  50%      { box-shadow: 0 0 14px var(--sb-accent-glow); }
+}
 
-/* =========================================================
-   BOTTOM
-   ========================================================= */
+.admin-sidebar .admin-nav a.active svg,
+.admin-sidebar .admin-nav a[aria-current="page"] svg {
+  color: var(--sb-accent-1);
+  stroke-width: 2.1;
+}
 
 .admin-sidebar .admin-sidebar-bottom {
-  display: flex !important;
-  flex-direction: column !important;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 
-  gap: 6px !important;
-
-  flex: 0 0 auto !important;
-
-  margin-top: 13px !important;
-  padding-top: 13px !important;
-
-  border-top: 1px solid #e4ece6 !important;
+  flex: 0 0 auto;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--sb-border);
 }
 
-
-/* =========================================================
-   USER
-   ========================================================= */
-
 .admin-sidebar .admin-user {
-  display: flex !important;
-  align-items: center !important;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 
-  gap: 9px !important;
+  padding: 9px;
+  border-radius: 12px;
+  background: var(--sb-bg-3);
+  border: 1px solid var(--sb-border);
 
-  min-width: 0 !important;
-
-  padding: 8px !important;
-
-  border-radius: 11px !important;
-
-  background: #f5f9f6 !important;
-
-  border: 1px solid #e5ece7 !important;
-
-  transition:
-    background .25s ease,
-    border-color .25s ease,
-    transform .25s ease !important;
+  transition: background var(--sb-transition-fast), border-color var(--sb-transition-fast), transform var(--sb-transition-fast);
 }
 
 .admin-sidebar .admin-user:hover {
-  background: #edf7f0 !important;
-
-  border-color: #d5e8da !important;
-
-  transform: translateY(-1px) !important;
+  background: #edf7f0;
+  border-color: #d5e8da;
+  transform: translateY(-1px);
 }
 
 .admin-sidebar .admin-user .avatar {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
-  width: 34px !important;
-  height: 34px !important;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  border-radius: 10px;
 
-  min-width: 34px !important;
+  background-color: #ffffff;
+  background-image: var(--sb-logo);
+  background-size: 70%;
+  background-position: center;
+  background-repeat: no-repeat;
 
-  border-radius: 10px !important;
+  color: transparent;
+  font-size: 12px;
+  font-weight: 800;
 
-  background:
-    linear-gradient(
-      145deg,
-      #246d43,
-      #49ad70
-    ) !important;
+  box-shadow: 0 4px 10px var(--sb-accent-glow), inset 0 0 0 1px var(--sb-border);
+  transition: transform var(--sb-transition-fast);
+}
 
-  color: white !important;
-
-  font-size: 11px !important;
-  font-weight: 850 !important;
+.admin-sidebar .admin-user:hover .avatar {
+  transform: scale(1.08) rotate(-3deg);
 }
 
 .admin-sidebar .admin-user > span:last-child {
-  display: flex !important;
-  flex-direction: column !important;
-
-  min-width: 0 !important;
-
-  gap: 2px !important;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
 }
 
 .admin-sidebar .admin-user b,
 .admin-sidebar .admin-user small {
-  overflow: hidden !important;
-
-  text-overflow: ellipsis !important;
-
-  white-space: nowrap !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .admin-sidebar .admin-user b {
-  color: #294a38 !important;
-
-  font-size: 10px !important;
-  font-weight: 750 !important;
+  color: #294a38;
+  font-size: 11px;
+  font-weight: 750;
 }
 
 .admin-sidebar .admin-user small {
-  color: #8a9990 !important;
-
-  font-size: 8px !important;
+  color: var(--sb-text-faint);
+  font-size: 9px;
 }
-
-
-/* =========================================================
-   LEARNER LINK + LOGOUT
-   ========================================================= */
 
 .admin-sidebar .admin-learner-link,
 .admin-sidebar .admin-logout {
-  display: flex !important;
-  align-items: center !important;
+  display: flex;
+  align-items: center;
+  gap: 9px;
 
-  gap: 8px !important;
+  min-height: 40px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  border: 1px solid transparent;
 
-  width: 100% !important;
-  min-width: 0 !important;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 650;
+  text-decoration: none;
+  cursor: pointer;
 
-  min-height: 36px !important;
-
-  box-sizing: border-box !important;
-
-  padding: 8px 10px !important;
-
-  border-radius: 9px !important;
-
-  font-family: inherit !important;
-
-  font-size: 10px !important;
-  font-weight: 650 !important;
-
-  text-decoration: none !important;
-
-  transition:
-    background .25s ease,
-    color .25s ease,
-    transform .25s ease !important;
+  transition: background var(--sb-transition-fast), color var(--sb-transition-fast), transform var(--sb-transition-fast), border-color var(--sb-transition-fast);
 }
 
 .admin-sidebar .admin-learner-link {
-  color: #64766a !important;
+  color: var(--sb-text-dim);
+  background: transparent;
 }
 
 .admin-sidebar .admin-learner-link:hover {
-  color: #237646 !important;
-
-  background: #edf7f0 !important;
-
-  transform: translateX(2px) !important;
+  color: var(--sb-accent-1);
+  background: var(--sb-bg-3);
+  transform: translateX(3px);
 }
 
 .admin-sidebar .admin-learner-link svg {
-  flex: 0 0 auto !important;
+  color: var(--sb-text-faint);
+  transition: color var(--sb-transition-fast);
+}
 
-  color: #7c8d82 !important;
+.admin-sidebar .admin-learner-link:hover svg {
+  color: var(--sb-accent-2);
 }
 
 .admin-sidebar .admin-logout {
-  border: 1px solid transparent !important;
-
-  background: transparent !important;
-
-  color: #7b817e !important;
-
-  cursor: pointer !important;
+  color: #8a8f8c;
+  background: transparent;
 }
 
 .admin-sidebar .admin-logout:hover {
-  color: #b34f4f !important;
-
-  background: #fff5f4 !important;
-
-  border-color: #f1dddd !important;
-
-  transform: translateX(2px) !important;
+  color: var(--sb-danger);
+  background: #fff5f4;
+  border-color: #f1dddd;
+  transform: translateX(3px);
 }
 
-
-/* =========================================================
-   IMPORTANT:
-   Do NOT force a margin on the main content unless your
-   actual HTML structure requires it.
-   If your existing layout already handles this, leave it.
-   ========================================================= */
-
-
-/* =========================================================
-   LAPTOP: 1024px–1199px
-   Keep FULL SIDEBAR
-   Just make it slightly narrower.
-   ========================================================= */
-
-@media (min-width: 1024px) and (max-width: 1199px) {
-
-  .admin-sidebar {
-    width: 224px !important;
-  }
-
+.admin-sidebar .admin-logout svg {
+  transition: transform var(--sb-transition-fast);
 }
 
+.admin-sidebar .admin-logout:hover svg {
+  transform: translateX(2px);
+}
 
-/* =========================================================
-   SMALL LAPTOP: 900px–1023px
-   STILL FULL SIDEBAR
-   ========================================================= */
+/* ---- Sidebar responsive steps ---- */
+
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .admin-sidebar { width: 232px; }
+}
 
 @media (min-width: 900px) and (max-width: 1023px) {
-
-  .admin-sidebar {
-    width: 210px !important;
-
-    padding-left: 10px !important;
-    padding-right: 10px !important;
-  }
-
-  .admin-sidebar .admin-brand {
-    gap: 9px !important;
-
-    padding-left: 7px !important;
-    padding-right: 7px !important;
-  }
-
-  .admin-sidebar .admin-brand strong {
-    font-size: 10px !important;
-  }
-
-  .admin-sidebar .admin-brand small {
-    font-size: 8px !important;
-  }
-
-  .admin-sidebar .admin-nav a {
-    gap: 9px !important;
-
-    padding-left: 9px !important;
-    padding-right: 9px !important;
-
-    font-size: 10px !important;
-  }
-
+  .admin-sidebar { width: 212px; padding-left: 10px; padding-right: 10px; }
+  .admin-sidebar .admin-brand strong { font-size: 11px; }
+  .admin-sidebar .admin-brand small { font-size: 9px; }
+  .admin-sidebar .admin-nav a { font-size: 11.5px; padding: 9px 10px; }
 }
 
+@media (min-width: 601px) and (max-width: 899px) {
+  .admin-sidebar { width: 76px; padding: 16px 10px; align-items: center; }
 
-/* =========================================================
-   TABLET
-   Only collapse once it is actually narrow.
-   ========================================================= */
-
-@media (max-width: 899px) and (min-width: 601px) {
-
-  .admin-sidebar {
-    width: 74px !important;
-
-    padding: 14px 9px !important;
-  }
-
-  .admin-sidebar .admin-brand {
-    justify-content: center !important;
-
-    padding: 6px !important;
-  }
-
+  .admin-sidebar .admin-brand { justify-content: center; padding: 6px; }
   .admin-sidebar .admin-brand > span:last-child,
   .admin-sidebar .admin-sidebar-label,
   .admin-sidebar .admin-nav a span,
   .admin-sidebar .admin-user > span:last-child {
-    display: none !important;
+    display: none;
   }
 
-  .admin-sidebar .admin-brand-mark {
-    width: 42px !important;
-    height: 42px !important;
-  }
-
-  .admin-sidebar .admin-nav {
-    align-items: center !important;
-  }
-
+  .admin-sidebar .admin-nav { align-items: center; }
   .admin-sidebar .admin-nav a {
-    justify-content: center !important;
-
-    width: 48px !important;
-    height: 46px !important;
-
-    padding: 0 !important;
+    justify-content: center;
+    width: 48px;
+    height: 46px;
+    padding: 0;
+  }
+  .admin-sidebar .admin-nav a.active::before,
+  .admin-sidebar .admin-nav a[aria-current="page"]::before {
+    left: 50%;
+    top: auto;
+    bottom: 2px;
+    width: 20px;
+    height: 3px;
+    transform: translateX(-50%);
+    border-radius: 4px 4px 0 0;
   }
 
-  .admin-sidebar .admin-user {
-    justify-content: center !important;
-
-    width: 48px !important;
-
-    padding: 6px !important;
-  }
-
+  .admin-sidebar .admin-user { justify-content: center; width: 48px; padding: 6px; }
   .admin-sidebar .admin-learner-link,
   .admin-sidebar .admin-logout {
-    justify-content: center !important;
-
-    width: 48px !important;
-
-    padding: 9px !important;
-
-    font-size: 0 !important;
+    justify-content: center;
+    width: 48px;
+    padding: 9px;
+    font-size: 0;
   }
-
 }
 
-
-/* =========================================================
-   MOBILE
-   ========================================================= */
-
 @media (max-width: 600px) {
-
   .admin-sidebar {
-    top: auto !important;
-    bottom: 0 !important;
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
 
-    width: 100% !important;
-    height: 64px !important;
+    width: 100%;
+    height: calc(64px + env(safe-area-inset-bottom, 0px));
 
-    padding: 6px 8px !important;
+    padding: 6px 8px;
+    padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
 
-    flex-direction: row !important;
-    align-items: center !important;
+    flex-direction: row;
+    align-items: center;
 
-    border-right: 0 !important;
-    border-top: 1px solid #dfe9e3 !important;
+    border-right: 0;
+    border-top: 1px solid var(--sb-border);
+    border-radius: 18px 18px 0 0;
 
-    border-radius: 17px 17px 0 0 !important;
+    box-shadow: 0 -8px 26px rgba(20,60,40,0.08);
+    animation: sb-slide-up 380ms ease both;
+    z-index: 200;
+  }
 
-    box-shadow:
-      0 -7px 25px rgba(25,70,43,.07) !important;
+  @keyframes sb-slide-up {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
 
   .admin-sidebar .admin-brand,
   .admin-sidebar .admin-sidebar-label,
   .admin-sidebar .admin-sidebar-bottom {
-    display: none !important;
+    display: none;
   }
 
   .admin-sidebar .admin-nav {
-    flex-direction: row !important;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-around;
 
-    align-items: center !important;
-    justify-content: space-around !important;
-
-    width: 100% !important;
-    height: 100% !important;
-
-    overflow: hidden !important;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
   }
 
   .admin-sidebar .admin-nav a {
-    justify-content: center !important;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    min-height: 48px;
+    padding: 0;
+    border-radius: 12px;
+    animation: none;
+    transform: none;
+  }
 
-    width: 46px !important;
-    height: 46px !important;
-    min-height: 46px !important;
-
-    padding: 0 !important;
-
-    border-radius: 12px !important;
-
-    transform: none !important;
+  .admin-sidebar .admin-nav a:hover {
+    transform: none;
   }
 
   .admin-sidebar .admin-nav a span {
-    display: none !important;
+    display: none;
   }
 
   .admin-sidebar .admin-nav a svg {
-    width: 19px !important;
-    height: 19px !important;
+    width: 20px;
+    height: 20px;
   }
 
-  .admin-sidebar .admin-nav a.active::before {
-    top: auto !important;
-    bottom: 2px !important;
-    left: 50% !important;
-
-    width: 20px !important;
-    height: 3px !important;
-
-    transform: translateX(-50%) !important;
+  .admin-sidebar .admin-nav a.active::before,
+  .admin-sidebar .admin-nav a[aria-current="page"]::before {
+    top: auto;
+    bottom: 2px;
+    left: 50%;
+    width: 20px;
+    height: 3px;
+    transform: translateX(-50%);
+    border-radius: 3px;
   }
 }
-
-
-/* =========================================================
-   VERY SMALL PHONE
-   ========================================================= */
 
 @media (max-width: 380px) {
-
-  .admin-sidebar {
-    padding-left: 4px !important;
-    padding-right: 4px !important;
-  }
-
+  .admin-sidebar { padding-left: 4px; padding-right: 4px; }
   .admin-sidebar .admin-nav a {
-    width: 43px !important;
-    height: 43px !important;
-    min-height: 43px !important;
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
   }
-
 }
 
-
-/* =========================================================
-   REDUCED MOTION
-   ========================================================= */
-
 @media (prefers-reduced-motion: reduce) {
-
   .admin-sidebar,
   .admin-sidebar *,
-  .admin-sidebar::before,
-  .admin-sidebar::after,
   .admin-sidebar *::before,
   .admin-sidebar *::after {
     animation: none !important;
     transition: none !important;
   }
-
 }
