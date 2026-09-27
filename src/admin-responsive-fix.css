@@ -2593,3 +2593,144 @@
     transition: none !important;
   }
 }
+/* LAPTOP, IPAD AND MOBILE SIDEBAR FIX */
+
+/* Large desktop */
+@media (min-width: 1440px) {
+  .admin-sidebar {
+    width: 268px !important;
+    transform: translateX(0) !important;
+  }
+
+  .admin-main {
+    width: calc(100% - 268px) !important;
+    margin-left: 268px !important;
+  }
+
+  .admin-menu-button {
+    display: none !important;
+  }
+}
+
+/* Laptop: 1024px–1439px */
+@media (min-width: 1024px) and (max-width: 1439px) {
+  .admin-sidebar {
+    width: 235px !important;
+    padding: 20px 12px !important;
+    transform: translateX(0) !important;
+  }
+
+  .admin-main {
+    width: calc(100% - 235px) !important;
+    margin-left: 235px !important;
+    min-width: 0 !important;
+  }
+
+  .admin-nav a {
+    padding: 12px 13px !important;
+    gap: 12px !important;
+    font-size: 14px !important;
+  }
+
+  .admin-brand strong {
+    font-size: 15px !important;
+  }
+
+  .admin-menu-button {
+    display: none !important;
+  }
+
+  .admin-topbar {
+    padding: 14px 22px !important;
+  }
+
+  .admin-main main {
+    min-width: 0 !important;
+    padding: 20px !important;
+  }
+}
+
+/* iPad / tablet: 768px–1023px */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .admin-sidebar {
+    width: 290px !important;
+    max-width: 82vw !important;
+    height: 100dvh !important;
+    transform: translateX(-105%) !important;
+    transition: transform 0.3s ease !important;
+    z-index: 1100 !important;
+  }
+
+  .admin-sidebar.is-open {
+    transform: translateX(0) !important;
+  }
+
+  .admin-main {
+    width: 100% !important;
+    margin-left: 0 !important;
+    min-width: 0 !important;
+  }
+
+  .admin-menu-button {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .admin-nav a {
+    padding: 13px 15px !important;
+    font-size: 15px !important;
+  }
+
+  .admin-topbar {
+    padding: 15px 22px !important;
+    gap: 14px !important;
+  }
+
+  .admin-main main {
+    min-width: 0 !important;
+    padding: 20px !important;
+  }
+}
+
+/* Mobile: retain drawer behavior */
+@media (max-width: 767px) {
+  .admin-sidebar {
+    width: min(310px, 86vw) !important;
+    transform: translateX(-105%) !important;
+    z-index: 1100 !important;
+  }
+
+  .admin-sidebar.is-open {
+    transform: translateX(0) !important;
+  }
+
+  .admin-main {
+    width: 100% !important;
+    margin-left: 0 !important;
+    min-width: 0 !important;
+  }
+
+  .admin-menu-button {
+    display: inline-flex !important;
+  }
+}
+
+/* Prevent content from overflowing on laptops and tablets */
+.admin-main,
+.admin-main main {
+  box-sizing: border-box !important;
+  min-width: 0 !important;
+}
+
+/* Replace shield icon with logo using CSS only */
+.admin-brand-mark svg {
+  display: none !important;
+}
+
+.admin-brand-mark {
+  background-image: url("/assets/logo.png") !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  background-size: contain !important;
+}
