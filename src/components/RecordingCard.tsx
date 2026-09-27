@@ -3,6 +3,8 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
   Clock3,
   ExternalLink,
   Film,
@@ -13,9 +15,8 @@ import {
   Search,
   ShieldCheck,
   Sparkles,
-    Upload,
+  Upload,
   X,
-  Trash2,
 } from "lucide-react";
 import { api, apiBlob } from "../api";
 import type { Course, LiveClass, User } from "../types";
@@ -61,6 +62,7 @@ type AdminRecordedVideo = {
   status: string;
   matching_source?: string | null;
   match_confidence?: string | null;
+  sort_order?: number;
   available?: boolean;
   last_error?: string | null;
   created_at?: string | null;
@@ -124,11 +126,11 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
   const [syncing, setSyncing] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [assigningId, setAssigningId] = useState<number | null>(null);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [orderingCourseId, setOrderingCourseId] = useState<number | null>(null);
   const [tab, setTab] = useState<"all" | "assigned" | "unassigned">("all");
   const [search, setSearch] = useState("");
   const [courseFilter, setCourseFilter] = useState("");
-  const [sortBy, setSortBy] = useState<"newest" | "oldest" | "name">("newest");
+  const [sortBy, setSortBy] = useState<"manual" | "newest" | "oldest" | "name">("manual");
   const [pendingCourseByRecord, setPendingCourseByRecord] = useState<Record<number, string>>({});
   const [pendingClassByRecord, setPendingClassByRecord] = useState<Record<number, string>>({});
   const [editingAssignmentByRecord, setEditingAssignmentByRecord] = useState<Record<number, boolean>>({});
@@ -241,12 +243,51 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
       return matchesTab && matchesSearch && matchesCourse;
     });
     return [...filtered].sort((left, right) => {
+      if (sortBy === "manual") {
+        const leftCourseId = left.course_id ?? (left.live_class_id ? liveClassById.get(left.live_class_id)?.course_id : undefined) ?? Number.MAX_SAFE_INTEGER;
+        const rightCourseId = right.course_id ?? (right.live_class_id ? liveClassById.get(right.live_class_id)?.course_id : undefined) ?? Number.MAX_SAFE_INTEGER;
+        return leftCourseId - rightCourseId || (left.sort_order ?? Number.MAX_SAFE_INTEGER) - (right.sort_order ?? Number.MAX_SAFE_INTEGER) || left.id - right.id;
+      }
       if (sortBy === "name") return (left.file_name || "").localeCompare(right.file_name || "");
       const leftDate = left.drive_created_at ? Date.parse(left.drive_created_at) : new Date(left.created_at || 0).getTime();
       const rightDate = right.drive_created_at ? Date.parse(right.drive_created_at) : new Date(right.created_at || 0).getTime();
       return sortBy === "oldest" ? leftDate - rightDate : rightDate - leftDate;
     });
   }, [courseFilter, enrichedRecords, liveClassById, search, sortBy, tab]);
+
+  const reorderCourseRecording = async (record: AdminRecordedVideo, direction: -1 | 1) => {
+    const targetCourseId = record.course_id ?? (record.live_class_id ? liveClassById.get(record.live_class_id)?.course_id : undefined);
+    if (!targetCourseId || orderingCourseId !== null) return;
+    const orderedRecords = records
+      .filter((item) => {
+        const itemCourseId = item.course_id ?? (item.live_class_id ? liveClassById.get(item.live_class_id)?.course_id : undefined);
+        return itemCourseId === targetCourseId;
+      })
+      .sort((left, right) => (left.sort_order ?? Number.MAX_SAFE_INTEGER) - (right.sort_order ?? Number.MAX_SAFE_INTEGER) || left.id - right.id);
+    const index = orderedRecords.findIndex((item) => item.id === record.id);
+    const targetIndex = index + direction;
+    if (index < 0 || targetIndex < 0 || targetIndex >= orderedRecords.length) return;
+    [orderedRecords[index], orderedRecords[targetIndex]] = [orderedRecords[targetIndex], orderedRecords[index]];
+
+    setOrderingCourseId(targetCourseId);
+    setError("");
+    setNotice("");
+    try {
+      await api("/admin/recorded-videos/order", {
+        method: "PUT",
+        body: JSON.stringify({ course_id: targetCourseId, record_ids: orderedRecords.map((item) => item.id) }),
+      });
+      await load();
+      setNotice("Video order saved. Learners will see the same order.");
+      notifications.showToast({ kind: "success", title: "Video order saved", message: "The selected course order is now visible to learners." });
+    } catch (cause) {
+      const messageText = (cause as Error).message || "Could not save the video order.";
+      setError(messageText);
+      notifications.showToast({ kind: "error", title: "Reorder failed", message: messageText });
+    } finally {
+      setOrderingCourseId(null);
+    }
+  };
 
   const totalPages = Math.max(1, Math.ceil(visibleRecords.length / pageSize));
   const safePage = Math.min(page, totalPages);
@@ -310,27 +351,7 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
       setSecuringDriveAccess(false);
     }
   };
-  const deleteRecording = async (record: AdminRecordedVideo) => {
-    if (!window.confirm(`Remove "${record.file_name}" from the admin list? This will not delete it from Google Drive.`)) {
-      return;
-    }
 
-    setDeletingId(record.id);
-    setError("");
-    setNotice("");
-
-    try {
-      await api<void>(`/admin/recorded-videos/${record.id}`, { method: "DELETE" });
-      setNotice(`${record.file_name} removed.`);
-      await load();
-    } catch (cause) {
-      const message = (cause as Error).message || "Unable to remove this recording.";
-      setError(message);
-      notifications.showToast({ kind: "error", title: "Delete failed", message });
-    } finally {
-      setDeletingId(null);
-    }
-  };
   const assignRecording = async (recordId: number, courseId: string, liveClassId: string) => {
     const selectedCourseId = Number(courseId);
     const selectedLiveClassId = liveClassId ? Number(liveClassId) : null;
@@ -542,6 +563,7 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
           ))}
         </div>
         <select className="rv2-sort" value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)}>
+          <option value="manual">Manual order</option>
           <option value="newest">Newest first</option>
           <option value="oldest">Oldest first</option>
           <option value="name">Name A–Z</option>
@@ -556,6 +578,10 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
           {courses.map((course) => <option key={course.id} value={String(course.id)}>{course.title}</option>)}
         </select>
       </div>
+
+      {sortBy === "manual" && !courseFilter && (
+        <div className="rv2-meta-row" role="status">Select a course to reorder videos; learners will see the saved course order.</div>
+      )}
 
       {loading ? (
         <div className="rv2-loading">
@@ -572,6 +598,13 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
         <div className="rv2-list">
           {paginatedRecords.map((record, index) => {
             const assigned = isAssigned(record);
+            const recordCourseId = record.course_id ?? (record.live_class_id ? liveClassById.get(record.live_class_id)?.course_id : undefined);
+            const orderedCourseRecords = recordCourseId
+              ? records.filter((item) => (item.course_id ?? (item.live_class_id ? liveClassById.get(item.live_class_id)?.course_id : undefined)) === recordCourseId)
+                  .sort((left, right) => (left.sort_order ?? Number.MAX_SAFE_INTEGER) - (right.sort_order ?? Number.MAX_SAFE_INTEGER) || left.id - right.id)
+              : [];
+            const courseOrderIndex = orderedCourseRecords.findIndex((item) => item.id === record.id);
+            const canShowReorder = sortBy === "manual" && Boolean(courseFilter) && tab === "all" && !search.trim() && assigned && courseOrderIndex >= 0;
             const pendingCourse = pendingCourseByRecord[record.id] ?? (record.suggested_course_id ? String(record.suggested_course_id) : "");
             const pendingClass = pendingClassByRecord[record.id] ?? "";
             const availableLiveClasses = liveClasses.filter((item) => String(item.course_id) === pendingCourse);
@@ -589,6 +622,7 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
                   <span className={`rv2-pill ${assigned ? "rv2-pill-success" : "rv2-pill-warning"}`}>
                     {assigned ? "Assigned" : "Unassigned"}
                   </span>
+                  {assigned && <span className="rv2-meta">#{record.sort_order ?? courseOrderIndex + 1}</span>}
                 </div>
 
                 <div className="rv2-meta-row">
@@ -619,6 +653,30 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
                       <span className="rv2-info-label">{record.live_class_id ? "Live class" : "Type"}</span>
                       <span className="rv2-info-value">{record.live_class_id ? record.liveClassTitle || "—" : "Prerecorded video"}</span>
                     </div>
+                    {canShowReorder && (
+                      <div className="rv2-row-actions" aria-label={`Order controls for ${record.file_name}`}>
+                        <button
+                          className="rv2-btn rv2-btn-ghost"
+                          type="button"
+                          title="Move video up"
+                          aria-label={`Move ${record.file_name} up`}
+                          disabled={courseOrderIndex === 0 || orderingCourseId !== null}
+                          onClick={() => void reorderCourseRecording(record, -1)}
+                        >
+                          <ChevronUp size={14} />
+                        </button>
+                        <button
+                          className="rv2-btn rv2-btn-ghost"
+                          type="button"
+                          title="Move video down"
+                          aria-label={`Move ${record.file_name} down`}
+                          disabled={courseOrderIndex === orderedCourseRecords.length - 1 || orderingCourseId !== null}
+                          onClick={() => void reorderCourseRecording(record, 1)}
+                        >
+                          <ChevronDown size={14} />
+                        </button>
+                      </div>
+                    )}
                     <button
                       className="rv2-btn rv2-btn-ghost"
                       type="button"
@@ -643,15 +701,6 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
                     <button className="rv2-btn rv2-btn-ghost" type="button" onClick={() => void openPreview(record)}>
                       <Play size={14} /> Preview
                     </button>
-                    <button
-  className="rv2-btn rv2-btn-ghost"
-  type="button"
-  disabled={deletingId === record.id || assigningId === record.id}
-  onClick={() => void deleteRecording(record)}
->
-  <Trash2 size={14} />
-  {deletingId === record.id ? "Deleting…" : "Delete"}
-</button>
                   </div>
                 ) : (
                   <div className="rv2-assign-row">
@@ -713,15 +762,6 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
                     )}
                     <button className="rv2-btn rv2-btn-ghost" type="button" onClick={() => void openPreview(record)}>
                       <Play size={14} /> Preview
-                    </button>
-                                        <button
-                      className="rv2-btn rv2-btn-ghost"
-                      type="button"
-                      disabled={deletingId === record.id || assigningId === record.id}
-                      onClick={() => void deleteRecording(record)}
-                    >
-                      <Trash2 size={14} />
-                      {deletingId === record.id ? "Deleting…" : "Delete"}
                     </button>
                   </div>
                 )}
