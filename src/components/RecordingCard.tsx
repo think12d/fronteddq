@@ -16,13 +16,14 @@ import {
 } from "lucide-react";
 import type { Course, LiveClass, User } from "../types";
 import { useNotifications } from "../notifications";
+import { api as apiRequest } from "../api";
 
 /**
  * Recorded Videos feature — admin management screen + learner-facing card.
  *
- * Self-contained: no "../api" helper dependency. Talks directly to the SAME
- * existing endpoints your app already exposes — nothing about the Drive
- * sync, matching engine, or data model changes here:
+ * Uses the SAME api() helper as the rest of the app (imported above as
+ * `apiRequest` so the rest of this file doesn't need to change) — nothing
+ * about the Drive sync, matching engine, or data model changes here:
  *   GET   /admin/recorded-videos
  *   GET   /admin/recorded-videos/summary
  *   POST  /admin/recorded-videos/sync
@@ -47,39 +48,6 @@ import { useNotifications } from "../notifications";
  * live-class detail route you already have).
  * ----------------------------------------------------------------------
  */
-
-// ============================================================================
-// FETCH HELPER (replaces the old "../api" import — adjust to match your
-// auth/storage setup: this reads a bearer token from localStorage under
-// "access_token" and an optional base URL from VITE_API_BASE_URL; change
-// both to whatever your app actually uses).
-// ============================================================================
-const API_BASE_URL = (import.meta as any)?.env?.VITE_API_BASE_URL ?? "https://api.jrf-hunters.in/api/v1";
-
-async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const token = typeof window !== "undefined" ? window.localStorage.getItem("access_token") : null;
-  const isFormData = typeof FormData !== "undefined" && init.body instanceof FormData;
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...init,
-    headers: {
-      ...(isFormData ? {} : { "Content-Type": "application/json" }),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(init.headers || {}),
-    },
-  });
-  if (!response.ok) {
-    let message = `Request failed (${response.status})`;
-    try {
-      const data = await response.json();
-      message = data?.detail || data?.message || message;
-    } catch {
-      // response body wasn't JSON — keep the generic message
-    }
-    throw new Error(message);
-  }
-  if (response.status === 204) return undefined as T;
-  return (await response.json()) as T;
-}
 
 // ============================================================================
 // ADMIN PAGE
