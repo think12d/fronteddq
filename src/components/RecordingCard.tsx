@@ -115,6 +115,7 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "name">("newest");
   const [pendingCourseByRecord, setPendingCourseByRecord] = useState<Record<number, string>>({});
   const [pendingClassByRecord, setPendingClassByRecord] = useState<Record<number, string>>({});
+  const [editingAssignmentByRecord, setEditingAssignmentByRecord] = useState<Record<number, boolean>>({});
   const [page, setPage] = useState(1);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -281,6 +282,7 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
       setNotice(`Recording assigned. ${assignmentMessage}`);
       notifications.showToast({ kind: "success", title: "Recording assigned", message: assignmentMessage });
       await load();
+      setEditingAssignmentByRecord((current) => ({ ...current, [recordId]: false }));
     } catch (cause) {
       const messageText = (cause as Error).message || "Unable to assign this recording.";
       setError(messageText);
@@ -511,16 +513,37 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
 
                 {record.last_error && <div className="rv2-warn-line">{record.last_error}</div>}
 
-                {assigned ? (
+                {assigned && !editingAssignmentByRecord[record.id] ? (
                   <div className="rv2-assigned-info">
                     <div>
                       <span className="rv2-info-label">Course</span>
                       <span className="rv2-info-value">{record.courseTitle || "Course unavailable"}</span>
                     </div>
                     <div>
-                      <span className="rv2-info-label">Live class</span>
-                        <span className="rv2-info-value">{record.liveClassTitle || "—"}</span>
+                      <span className="rv2-info-label">{record.live_class_id ? "Live class" : "Type"}</span>
+                      <span className="rv2-info-value">{record.live_class_id ? record.liveClassTitle || "—" : "Prerecorded video"}</span>
                     </div>
+                    <button
+                      className="rv2-btn rv2-btn-ghost"
+                      type="button"
+                      onClick={() => {
+                        const currentLiveClass = record.live_class_id
+                          ? liveClassById.get(record.live_class_id)
+                          : null;
+                        const courseId = record.course_id ?? currentLiveClass?.course_id;
+                        setPendingCourseByRecord((current) => ({
+                          ...current,
+                          [record.id]: courseId ? String(courseId) : "",
+                        }));
+                        setPendingClassByRecord((current) => ({
+                          ...current,
+                          [record.id]: record.live_class_id ? String(record.live_class_id) : "",
+                        }));
+                        setEditingAssignmentByRecord((current) => ({ ...current, [record.id]: true }));
+                      }}
+                    >
+                      Edit assignment
+                    </button>
                     <button className="rv2-btn rv2-btn-ghost" type="button" onClick={() => void openPreview(record)}>
                       <Play size={14} /> Preview
                     </button>
@@ -584,8 +607,18 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
                       disabled={assigningId === record.id || !pendingCourse || (availableLiveClasses.length > 0 && !pendingClass)}
                       onClick={() => void assignRecording(record.id, pendingCourse, pendingClass)}
                     >
-                      {assigningId === record.id ? "Assigning…" : "Assign recording"}
+                      {assigningId === record.id ? "Saving…" : editingAssignmentByRecord[record.id] ? "Save assignment" : "Assign recording"}
                     </button>
+                    {editingAssignmentByRecord[record.id] && (
+                      <button
+                        className="rv2-btn rv2-btn-ghost"
+                        type="button"
+                        disabled={assigningId === record.id}
+                        onClick={() => setEditingAssignmentByRecord((current) => ({ ...current, [record.id]: false }))}
+                      >
+                        Cancel
+                      </button>
+                    )}
                     <button className="rv2-btn rv2-btn-ghost" type="button" onClick={() => void openPreview(record)}>
                       <Play size={14} /> Preview
                     </button>
