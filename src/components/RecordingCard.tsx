@@ -62,7 +62,8 @@ type AdminRecordedVideo = {
   status: string;
   matching_source?: string | null;
   match_confidence?: string | null;
-  sort_order?: number;
+  display_order?: number;
+  thumbnail_available?: boolean;
   available?: boolean;
   last_error?: string | null;
   created_at?: string | null;
@@ -116,6 +117,33 @@ function isAudioRecording(mimeType?: string | null, fileName?: string | null): b
   return /\.mp3$/i.test(fileName || "");
 }
 
+function RecordedVideoThumbnail({ record }: { record: AdminRecordedVideo }) {
+  const [url, setUrl] = useState("");
+
+  useEffect(() => {
+    if (!record.thumbnail_available) {
+      setUrl("");
+      return;
+    }
+    let active = true;
+    let objectUrl = "";
+    void apiBlob(`/recordings/recorded-videos/${record.id}/thumbnail`)
+      .then((blob) => {
+        objectUrl = URL.createObjectURL(blob);
+        if (active) setUrl(objectUrl);
+        else URL.revokeObjectURL(objectUrl);
+      })
+      .catch(() => active && setUrl(""));
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [record.id, record.thumbnail_available]);
+
+  if (!url) return <div className="rv2-thumbnail rv2-thumbnail-empty"><Film size={20} /></div>;
+  return <img className="rv2-thumbnail" src={url} alt={`Thumbnail for ${record.file_name}`} />;
+}
+
 export function AdminRecordedVideosPage({ user }: { user: User | null }) {
   const notifications = useNotifications();
   const [records, setRecords] = useState<AdminRecordedVideo[]>([]);
@@ -141,7 +169,10 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
   const [previewUrl, setPreviewUrl] = useState("");
   const [previewBusy, setPreviewBusy] = useState(false);
   const [securingDriveAccess, setSecuringDriveAccess] = useState(false);
+  const [thumbnailBusyId, setThumbnailBusyId] = useState<number | null>(null);
+  const [thumbnailTargetId, setThumbnailTargetId] = useState<number | null>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
+  const thumbnailInputRef = useRef<HTMLInputElement>(null);
   const pageSize = 10;
 
   const load = async () => {
@@ -246,7 +277,7 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
       if (sortBy === "manual") {
         const leftCourseId = left.course_id ?? (left.live_class_id ? liveClassById.get(left.live_class_id)?.course_id : undefined) ?? Number.MAX_SAFE_INTEGER;
         const rightCourseId = right.course_id ?? (right.live_class_id ? liveClassById.get(right.live_class_id)?.course_id : undefined) ?? Number.MAX_SAFE_INTEGER;
-        return leftCourseId - rightCourseId || (left.sort_order ?? Number.MAX_SAFE_INTEGER) - (right.sort_order ?? Number.MAX_SAFE_INTEGER) || left.id - right.id;
+        return leftCourseId - rightCourseId || (left.display_order ?? Number.MAX_SAFE_INTEGER) - (right.display_order ?? Number.MAX_SAFE_INTEGER) || left.id - right.id;
       }
       if (sortBy === "name") return (left.file_name || "").localeCompare(right.file_name || "");
       const leftDate = left.drive_created_at ? Date.parse(left.drive_created_at) : new Date(left.created_at || 0).getTime();
@@ -263,7 +294,7 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
         const itemCourseId = item.course_id ?? (item.live_class_id ? liveClassById.get(item.live_class_id)?.course_id : undefined);
         return itemCourseId === targetCourseId;
       })
-      .sort((left, right) => (left.sort_order ?? Number.MAX_SAFE_INTEGER) - (right.sort_order ?? Number.MAX_SAFE_INTEGER) || left.id - right.id);
+      .sort((left, right) => (left.display_order ?? Number.MAX_SAFE_INTEGER) - (right.display_order ?? Number.MAX_SAFE_INTEGER) || left.id - right.id);
     const index = orderedRecords.findIndex((item) => item.id === record.id);
     const targetIndex = index + direction;
     if (index < 0 || targetIndex < 0 || targetIndex >= orderedRecords.length) return;
@@ -273,9 +304,12 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
     setError("");
     setNotice("");
     try {
-      await api("/admin/recorded-videos/order", {
-        method: "PUT",
-        body: JSON.stringify({ course_id: targetCourseId, record_ids: orderedRecords.map((item) => item.id) }),
+      await api("/admin/recorded-videos/reorder", {
+        method: "PATCH",
+        body: JSON.stringify({
+          course_id: targetCourseId,
+          items: orderedRecords.map((item, position) => ({ id: item.id, position })),
+        }),
       });
       await load();
       setNotice("Video order saved. Learners will see the same order.");
@@ -430,6 +464,59 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
     }
   };
 
+  const uploadThumbnail = async (recordId: number, file: File) => {
+    const extension = file.name.split(".").pop()?.toLowerCase();
+    if (!extension || !["jpg", "jpeg", "png", "webp"].includes(extension)) {
+      setError("Choose a JPG, PNG, or WEBP thumbnail.");
+      return;
+    }
+    if (file.type && file.type !== "application/octet-stream" && !["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setError("The selected thumbnail type does not match its extension.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Thumbnails must be no larger than 5 MB.");
+      return;
+    }
+
+    setThumbnailBusyId(recordId);
+    setError("");
+    setNotice("");
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      await api(`/admin/recorded-videos/${recordId}/thumbnail`, { method: "POST", body: form });
+      await load();
+      setNotice("Thumbnail saved.");
+      notifications.showToast({ kind: "success", title: "Thumbnail saved", message: "Learners will now see the updated thumbnail." });
+    } catch (cause) {
+      const message = (cause as Error).message || "Unable to upload this thumbnail.";
+      setError(message);
+      notifications.showToast({ kind: "error", title: "Thumbnail upload failed", message });
+    } finally {
+      setThumbnailBusyId(null);
+    }
+  };
+
+  const removeThumbnail = async (record: AdminRecordedVideo) => {
+    if (!window.confirm(`Remove the thumbnail for ${record.file_name}?`)) return;
+    setThumbnailBusyId(record.id);
+    setError("");
+    setNotice("");
+    try {
+      await api(`/admin/recorded-videos/${record.id}/thumbnail`, { method: "DELETE" });
+      await load();
+      setNotice("Thumbnail removed.");
+      notifications.showToast({ kind: "success", title: "Thumbnail removed", message: "The recording will use the default display." });
+    } catch (cause) {
+      const message = (cause as Error).message || "Unable to remove this thumbnail.";
+      setError(message);
+      notifications.showToast({ kind: "error", title: "Thumbnail removal failed", message });
+    } finally {
+      setThumbnailBusyId(null);
+    }
+  };
+
   const openPreview = async (record: AdminRecordedVideo) => {
     setPreviewBusy(true);
     setPreviewUrl("");
@@ -489,6 +576,19 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
             onChange={(event) => {
               const file = event.currentTarget.files?.[0];
               if (file) void uploadRecording(file);
+            }}
+          />
+          <input
+            ref={thumbnailInputRef}
+            type="file"
+            accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+            hidden
+            onChange={(event) => {
+              const file = event.currentTarget.files?.[0];
+              const recordId = thumbnailTargetId;
+              event.currentTarget.value = "";
+              setThumbnailTargetId(null);
+              if (file && recordId) void uploadThumbnail(recordId, file);
             }}
           />
           <button
@@ -601,7 +701,7 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
             const recordCourseId = record.course_id ?? (record.live_class_id ? liveClassById.get(record.live_class_id)?.course_id : undefined);
             const orderedCourseRecords = recordCourseId
               ? records.filter((item) => (item.course_id ?? (item.live_class_id ? liveClassById.get(item.live_class_id)?.course_id : undefined)) === recordCourseId)
-                  .sort((left, right) => (left.sort_order ?? Number.MAX_SAFE_INTEGER) - (right.sort_order ?? Number.MAX_SAFE_INTEGER) || left.id - right.id)
+                  .sort((left, right) => (left.display_order ?? Number.MAX_SAFE_INTEGER) - (right.display_order ?? Number.MAX_SAFE_INTEGER) || left.id - right.id)
               : [];
             const courseOrderIndex = orderedCourseRecords.findIndex((item) => item.id === record.id);
             const canShowReorder = sortBy === "manual" && Boolean(courseFilter) && tab === "all" && !search.trim() && assigned && courseOrderIndex >= 0;
@@ -614,6 +714,7 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
                 key={record.id}
                 style={{ animationDelay: `${(index % pageSize) * 35}ms` }}
               >
+                <RecordedVideoThumbnail record={record} />
                 <div className="rv2-card-top">
                   <div className="rv2-card-title">
                     <Film size={16} />
@@ -622,7 +723,7 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
                   <span className={`rv2-pill ${assigned ? "rv2-pill-success" : "rv2-pill-warning"}`}>
                     {assigned ? "Assigned" : "Unassigned"}
                   </span>
-                  {assigned && <span className="rv2-meta">#{record.sort_order ?? courseOrderIndex + 1}</span>}
+                  {assigned && <span className="rv2-meta">#{(record.display_order ?? courseOrderIndex) + 1}</span>}
                 </div>
 
                 <div className="rv2-meta-row">
@@ -701,6 +802,27 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
                     <button className="rv2-btn rv2-btn-ghost" type="button" onClick={() => void openPreview(record)}>
                       <Play size={14} /> Preview
                     </button>
+                    <button
+                      className="rv2-btn rv2-btn-ghost"
+                      type="button"
+                      disabled={thumbnailBusyId !== null}
+                      onClick={() => {
+                        setThumbnailTargetId(record.id);
+                        thumbnailInputRef.current?.click();
+                      }}
+                    >
+                      <Upload size={14} /> {record.thumbnail_available ? "Replace thumbnail" : "Add thumbnail"}
+                    </button>
+                    {record.thumbnail_available && (
+                      <button
+                        className="rv2-btn rv2-btn-ghost"
+                        type="button"
+                        disabled={thumbnailBusyId !== null}
+                        onClick={() => void removeThumbnail(record)}
+                      >
+                        <X size={14} /> Remove thumbnail
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <div className="rv2-assign-row">
@@ -763,6 +885,27 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
                     <button className="rv2-btn rv2-btn-ghost" type="button" onClick={() => void openPreview(record)}>
                       <Play size={14} /> Preview
                     </button>
+                    <button
+                      className="rv2-btn rv2-btn-ghost"
+                      type="button"
+                      disabled={thumbnailBusyId !== null}
+                      onClick={() => {
+                        setThumbnailTargetId(record.id);
+                        thumbnailInputRef.current?.click();
+                      }}
+                    >
+                      <Upload size={14} /> {record.thumbnail_available ? "Replace thumbnail" : "Add thumbnail"}
+                    </button>
+                    {record.thumbnail_available && (
+                      <button
+                        className="rv2-btn rv2-btn-ghost"
+                        type="button"
+                        disabled={thumbnailBusyId !== null}
+                        onClick={() => void removeThumbnail(record)}
+                      >
+                        <X size={14} /> Remove thumbnail
+                      </button>
+                    )}
                   </div>
                 )}
               </article>
@@ -1025,6 +1168,23 @@ const RV2_STYLES = `
   box-sizing: border-box;
 }
 .rv2-root * { box-sizing: border-box; }
+.rv2-list { display: grid; gap: 12px; margin-top: 18px; }
+.rv2-card { position: relative; min-height: 122px; padding: 16px 16px 16px 144px; border: 1px solid var(--rv2-border); border-radius: var(--rv2-radius); background: var(--rv2-surface); }
+.rv2-card-assigned { border-left: 4px solid var(--rv2-teal); }
+.rv2-card-unassigned { border-left: 4px solid var(--rv2-amber); }
+.rv2-thumbnail { position: absolute; top: 16px; left: 16px; width: 112px; height: 76px; object-fit: cover; border-radius: 9px; border: 1px solid var(--rv2-border); background: #10121a; }
+.rv2-thumbnail-empty { display: grid; place-items: center; color: #a5abba; }
+.rv2-card-top, .rv2-meta-row { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.rv2-card-title { display: flex; align-items: center; gap: 7px; min-width: 0; flex: 1; font-weight: 700; }
+.rv2-card-title span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rv2-pill { padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+.rv2-pill-success { color: var(--rv2-teal); background: var(--rv2-teal-soft); }
+.rv2-pill-warning { color: var(--rv2-amber); background: var(--rv2-amber-soft); }
+.rv2-meta-row { margin-top: 9px; color: var(--rv2-ink-soft); font-size: 12px; }
+.rv2-meta { display: inline-flex; align-items: center; gap: 4px; }
+.rv2-btn-primary { color: #fff; background: var(--rv2-teal); border-color: var(--rv2-teal); }
+.rv2-btn-ghost { color: var(--rv2-ink); background: var(--rv2-surface); border-color: var(--rv2-border-strong); }
+.rv2-btn-ghost:hover:not(:disabled) { border-color: var(--rv2-teal); color: var(--rv2-teal); }
  
 .rv2-guard {
   display: flex;
@@ -1319,6 +1479,8 @@ const RV2_STYLES = `
   .rv2-assigned-info { flex-direction: column; align-items: flex-start; gap: 10px; }
   .rv2-row-actions { margin-left: 0; }
   .rv2-row-top { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .rv2-card { padding: 14px; }
+  .rv2-thumbnail { position: static; display: block; width: 100%; height: 160px; margin-bottom: 12px; }
 }
  
 @media (max-width: 560px) {
