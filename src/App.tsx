@@ -9527,7 +9527,9 @@ function Admin({ user }: { user: User | null }) {
           ]),
         });
       }
-      return Array.from(deduped.values());
+      return Array.from(deduped.values()).sort(
+        (left, right) => (left.sort_order ?? 0) - (right.sort_order ?? 0) || left.id - right.id,
+      );
     };
 
     const normalizeModules = (modules: Course["modules"] = []) => {
