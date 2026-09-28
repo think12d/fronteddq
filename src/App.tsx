@@ -9469,6 +9469,7 @@ function Admin({ user }: { user: User | null }) {
   const [directoryResourcePages, setDirectoryResourcePages] = useState<Record<number, number>>({});
   const [directoryResourcePageSizes, setDirectoryResourcePageSizes] = useState<Record<number, number>>({});
   const [orderingTopicId, setOrderingTopicId] = useState<number | null>(null);
+  const [orderingTopicGroupId, setOrderingTopicGroupId] = useState<number | null>(null);
   const [orderingModuleId, setOrderingModuleId] = useState<number | null>(null);
   const [broadcastTitle, setBroadcastTitle] = useState("");
   const [broadcastMessage, setBroadcastMessage] = useState("");
@@ -10323,6 +10324,32 @@ function Admin({ user }: { user: User | null }) {
       adminError("File reorder failed", cause, "Unable to save the new topic order.");
     } finally {
       setOrderingTopicId(null);
+    }
+  };
+  const reorderModuleTopics = async (
+    moduleId: number,
+    moduleTopics: Topic[],
+    index: number,
+    direction: -1 | 1,
+  ) => {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= moduleTopics.length || orderingTopicGroupId !== null) return;
+    const reordered = [...moduleTopics];
+    [reordered[index], reordered[targetIndex]] = [reordered[targetIndex], reordered[index]];
+    setOrderingTopicGroupId(moduleId);
+    try {
+      await api(`/courses/modules/${moduleId}/topics/order`, {
+        method: "PUT",
+        body: JSON.stringify({ topic_ids: reordered.map((topic) => topic.id) }),
+      });
+      await refresh();
+      setMessage("Topic order saved. Learners will see the same order.");
+      adminSuccess("Topic order saved", "The module topic order was updated in the database.");
+    } catch (cause) {
+      setMessage((cause as Error).message || "Could not save the topic order.");
+      adminError("Topic reorder failed", cause, "Unable to save the new topic order.");
+    } finally {
+      setOrderingTopicGroupId(null);
     }
   };
   const reorderCourseModules = async (
@@ -11277,7 +11304,7 @@ function Admin({ user }: { user: User | null }) {
 
                 {(module.topics || []).length ? (
                   <div className="directory-topic-group">
-                    {(module.topics || []).map((topic) => {
+                    {(module.topics || []).map((topic, topicIndex) => {
                       const topicResources = topic.resources || [];
                       const resourcePageSize = directoryResourcePageSizes[topic.id] || 10;
                       const resourceTotalPages = Math.max(1, Math.ceil(topicResources.length / resourcePageSize));
@@ -11297,6 +11324,26 @@ function Admin({ user }: { user: User | null }) {
                             <small>{(topic.resources || []).length} files</small>
                           </div>
                           <div className="directory-action-row">
+                            <button
+                              type="button"
+                              className="button-link"
+                              title="Move topic up"
+                              aria-label={`Move topic ${topic.title} up`}
+                              disabled={topicIndex <= 0 || orderingTopicGroupId === module.id}
+                              onClick={() => void reorderModuleTopics(module.id, module.topics || [], topicIndex, -1)}
+                            >
+                              <ChevronUp size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              className="button-link"
+                              title="Move topic down"
+                              aria-label={`Move topic ${topic.title} down`}
+                              disabled={topicIndex >= (module.topics || []).length - 1 || orderingTopicGroupId === module.id}
+                              onClick={() => void reorderModuleTopics(module.id, module.topics || [], topicIndex, 1)}
+                            >
+                              <ChevronDown size={14} />
+                            </button>
                             <button
                               type="button"
                               className="button button-small"
