@@ -9445,6 +9445,7 @@ function Admin({ user }: { user: User | null }) {
   const [courseImageFile, setCourseImageFile] = useState<File | null>(null);
   const [courseImageUrl, setCourseImageUrl] = useState<string | null>(null);
   const [mockPriceRupees, setMockPriceRupees] = useState("");
+  const [questionArchivePriceRupees, setQuestionArchivePriceRupees] = useState("399");
   const [freeMockAttempts, setFreeMockAttempts] = useState("");
   const [savingMockSettings, setSavingMockSettings] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
@@ -9597,6 +9598,9 @@ function Admin({ user }: { user: User | null }) {
         setMockPriceRupees((configuration.price_paise / 100).toString());
         setFreeMockAttempts(String(configuration.free_attempt_limit));
       })
+      .catch(() => undefined);
+    void api<{ price_paise: number }>("/admin/settings/question-archive")
+      .then((configuration) => setQuestionArchivePriceRupees((configuration.price_paise / 100).toString()))
       .catch(() => undefined);
   }, [user?.id]);
 
@@ -9871,6 +9875,24 @@ function Admin({ user }: { user: User | null }) {
       adminError("Settings save failed", cause, "Unable to save mock-test settings.");
     } finally {
       setSavingMockSettings(false);
+    }
+  };
+
+  const saveQuestionArchivePrice = async (event: FormEvent) => {
+    event.preventDefault();
+    const parsedPrice = Number(questionArchivePriceRupees);
+    if (!Number.isFinite(parsedPrice) || parsedPrice < 1) return setMessage("Enter a Question Archive price of at least ₹1.");
+    try {
+      const configuration = await api<{ price_paise: number }>("/admin/settings/question-archive", {
+        method: "PATCH",
+        body: JSON.stringify({ price_paise: Math.round(parsedPrice * 100) }),
+      });
+      setQuestionArchivePriceRupees((configuration.price_paise / 100).toString());
+      setMessage("Question Archive price saved.");
+      adminSuccess("Settings saved", "The Question Archive unlock price was updated.");
+    } catch (cause) {
+      setMessage((cause as Error).message);
+      adminError("Settings save failed", cause, "Unable to save the Question Archive price.");
     }
   };
 
@@ -10613,6 +10635,25 @@ function Admin({ user }: { user: User | null }) {
             <button className="button button-dark" type="submit" disabled={savingMockSettings}>
               <Save size={14} /> {savingMockSettings ? "Saving..." : "Save settings"}
             </button>
+          </div>
+        </form>
+      </section>
+      <section className="panel admin-mock-settings">
+        <div className="section-heading compact">
+          <div>
+            <span className="eyebrow">QUESTION ARCHIVE ACCESS</span>
+            <h2>Three free papers, then unlock</h2>
+          </div>
+        </div>
+        <form className="admin-mock-settings-form" onSubmit={saveQuestionArchivePrice}>
+          <div className="inline-builder">
+            <label>
+              Unlimited archive price (INR)
+              <input type="number" min="1" step="0.01" value={questionArchivePriceRupees} onChange={(event) => setQuestionArchivePriceRupees(event.target.value)} required />
+            </label>
+          </div>
+          <div className="form-action-row">
+            <button className="button button-dark" type="submit"><Save size={14} /> Save archive price</button>
           </div>
         </form>
       </section>
