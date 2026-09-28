@@ -9403,6 +9403,11 @@ function Admin({ user }: { user: User | null }) {
     resources: number;
     revenue_paise: number;
   } | null>(null);
+  const [recordedSummary, setRecordedSummary] = useState<{
+    total: number;
+    assigned: number;
+    unassigned: number;
+  }>({ total: 0, assigned: 0, unassigned: 0 });
   const [payments, setPayments] = useState<AdminPayment[]>([]);
   const [storage, setStorage] = useState<{
     provider: string;
@@ -9463,6 +9468,7 @@ function Admin({ user }: { user: User | null }) {
   const [directoryResourcePages, setDirectoryResourcePages] = useState<Record<number, number>>({});
   const [directoryResourcePageSizes, setDirectoryResourcePageSizes] = useState<Record<number, number>>({});
   const [orderingTopicId, setOrderingTopicId] = useState<number | null>(null);
+  const [orderingModuleId, setOrderingModuleId] = useState<number | null>(null);
   const [broadcastTitle, setBroadcastTitle] = useState("");
   const [broadcastMessage, setBroadcastMessage] = useState("");
   const [broadcastAudience, setBroadcastAudience] = useState<"all" | "student" | "admin">("all");
@@ -9561,11 +9567,13 @@ function Admin({ user }: { user: User | null }) {
       api<typeof storage>("/admin/storage"),
       api<AdminPayment[]>("/admin/payments"),
     ]);
+    const recordings = await api<typeof recordedSummary>("/admin/recorded-videos/summary").catch(() => ({ total: 0, assigned: 0, unassigned: 0 }));
     const normalizedItems = normalizeCourses(items);
     setOverview(stats);
     setCourses(normalizedItems);
     setStorage(storageInfo);
     setPayments(paymentItems);
+    setRecordedSummary(recordings);
     setSelected((id) =>
       id && normalizedItems.some((item) => String(item.id) === id)
         ? id
@@ -10295,6 +10303,33 @@ function Admin({ user }: { user: User | null }) {
       setOrderingTopicId(null);
     }
   };
+  const reorderCourseModules = async (
+    courseId: number,
+    courseModules: Course["modules"],
+    index: number,
+    direction: -1 | 1,
+  ) => {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= courseModules.length || orderingModuleId !== null) return;
+    const reordered = [...courseModules];
+    [reordered[index], reordered[targetIndex]] = [reordered[targetIndex], reordered[index]];
+    setOrderingModuleId(reordered[index].id);
+    setMessage("");
+    try {
+      await api(`/courses/${courseId}/modules/order`, {
+        method: "PUT",
+        body: JSON.stringify({ module_ids: reordered.map((module) => module.id) }),
+      });
+      await refresh();
+      setMessage("Module order saved. Learners will see the same order.");
+      adminSuccess("Module order saved", "The course module order was updated in the database.");
+    } catch (cause) {
+      setMessage((cause as Error).message || "Could not save the module order.");
+      adminError("Module reorder failed", cause, "Unable to save the new module order.");
+    } finally {
+      setOrderingModuleId(null);
+    }
+  };
   const deleteResource = async (id: number) => {
     const confirmed = await notifications.confirmAction({
       title: "Delete file",
@@ -10352,6 +10387,7 @@ function Admin({ user }: { user: User | null }) {
   const metricCards = [
     { label: "Students", value: overview?.students ?? "—", icon: "👥" },
     { label: "Materials", value: overview?.resources ?? "—", icon: "🗂️" },
+    { label: "Recorded videos", value: recordedSummary.total, icon: "🎬" },
     {
       label: "Revenue",
       value: overview ? `₹${(overview.revenue_paise / 100).toLocaleString("en-IN")}` : "—",
@@ -10463,6 +10499,16 @@ function Admin({ user }: { user: User | null }) {
             <b>Payments &amp; receipts</b>
             <small>
               {payments.length} recent transactions · view the full ledger
+            </small>
+          </span>
+          <ArrowRight size={15} />
+        </Link>
+        <Link to="/admin/recorded-videos" className="admin-quicklink-card">
+          <span className="admin-quicklink-icon">🎬</span>
+          <span>
+            <b>Recorded videos</b>
+            <small>
+              {recordedSummary.assigned} assigned · {recordedSummary.unassigned} awaiting assignment · upload, thumbnails &amp; reorder
             </small>
           </span>
           <ArrowRight size={15} />
@@ -11126,6 +11172,7 @@ function Admin({ user }: { user: User | null }) {
               (count, topic) => count + (topic.resources || []).length,
               0,
             );
+            const moduleIndex = modules.findIndex((item) => item.id === module.id);
 
             return (
               <div className="directory-admin-module" key={module.id}>
@@ -11136,6 +11183,26 @@ function Admin({ user }: { user: User | null }) {
                     <small>{moduleTotalFiles} files</small>
                   </div>
                   <div className="directory-action-row">
+                    <button
+                      type="button"
+                      className="button-link"
+                      title="Move module up"
+                      aria-label={`Move module ${module.title} up`}
+                      disabled={moduleIndex <= 0 || orderingModuleId !== null}
+                      onClick={() => void reorderCourseModules(Number(selected), modules, moduleIndex, -1)}
+                    >
+                      <ChevronUp size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      className="button-link"
+                      title="Move module down"
+                      aria-label={`Move module ${module.title} down`}
+                      disabled={moduleIndex < 0 || moduleIndex >= modules.length - 1 || orderingModuleId !== null}
+                      onClick={() => void reorderCourseModules(Number(selected), modules, moduleIndex, 1)}
+                    >
+                      <ChevronDown size={14} />
+                    </button>
                     <button
                       type="button"
                       className="button button-small"
