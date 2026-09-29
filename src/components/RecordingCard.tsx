@@ -110,6 +110,12 @@ function formatWhen(value?: string | null): string {
   });
 }
 
+function autoScrollDuringDrag(clientY: number): void {
+  const edge = 120;
+  const distance = clientY < edge ? clientY - edge : clientY > window.innerHeight - edge ? clientY - (window.innerHeight - edge) : 0;
+  if (distance) window.scrollBy({ top: Math.sign(distance) * Math.min(28, Math.max(8, Math.abs(distance) / 3)), behavior: "auto" });
+}
+
 function isAudioRecording(mimeType?: string | null, fileName?: string | null): boolean {
   const normalizedMime = (mimeType || "").toLowerCase();
   if (normalizedMime.startsWith("audio/")) return true;
@@ -755,7 +761,7 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
                 draggable={arrangeMode && assigned}
                 onDragStart={() => arrangeMode && assigned && setDragRecordId(record.id)}
                 onDragEnd={() => setDragRecordId(null)}
-                onDragOver={(event) => { if (arrangeMode && assigned) event.preventDefault(); }}
+                onDragOver={(event) => { if (arrangeMode && assigned) { event.preventDefault(); autoScrollDuringDrag(event.clientY); } }}
                 onDrop={(event) => { if (arrangeMode && assigned) { event.preventDefault(); void dropCourseRecording(record); } }}
                 style={{ animationDelay: `${(index % pageSize) * 35}ms` }}
               >
