@@ -338,6 +338,10 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
     if (from < 0 || to < 0) return;
     const [moved] = orderedRecords.splice(from, 1);
     orderedRecords.splice(to, 0, moved);
+    setRecords((current) => current.map((item) => {
+      const next = orderedRecords.findIndex((candidate) => candidate.id === item.id);
+      return next >= 0 ? { ...item, display_order: next } : item;
+    }));
     setDragRecordId(null);
     setOrderingCourseId(targetCourseId);
     try {
