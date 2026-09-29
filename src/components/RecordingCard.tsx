@@ -15,6 +15,7 @@ import {
   Search,
   ShieldCheck,
   Sparkles,
+  Trash2,
   Upload,
   X,
 } from "lucide-react";
@@ -352,7 +353,6 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
     setOrderingCourseId(targetCourseId);
     try {
       await api("/admin/recorded-videos/reorder", { method: "PATCH", body: JSON.stringify({ course_id: targetCourseId, items: orderedRecords.map((item, position) => ({ id: item.id, position })) }) });
-      await load();
       setNotice("Video placement saved. Learners will see the same order.");
     } catch (cause) {
       setError((cause as Error).message || "Could not save the video placement.");
@@ -552,6 +552,23 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
       notifications.showToast({ kind: "error", title: "Thumbnail removal failed", message });
     } finally {
       setThumbnailBusyId(null);
+    }
+  };
+
+  const deleteRecording = async (record: AdminRecordedVideo) => {
+    if (!window.confirm(`Delete “${record.file_name}” from the recorded-video database? This removes it from learner playback and cannot be undone.`)) return;
+    setError("");
+    setNotice("");
+    try {
+      await api(`/admin/recorded-videos/${record.id}`, { method: "DELETE" });
+      setRecords((current) => current.filter((item) => item.id !== record.id));
+      setNotice(`${record.file_name} was deleted from the recorded-video database.`);
+      notifications.showToast({ kind: "success", title: "Recording deleted", message: "The video was removed from the admin and learner lists." });
+      await load();
+    } catch (cause) {
+      const message = (cause as Error).message || "Unable to delete this recording.";
+      setError(message);
+      notifications.showToast({ kind: "error", title: "Delete failed", message });
     }
   };
 
@@ -882,6 +899,9 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
                         <X size={14} /> Remove thumbnail
                       </button>
                     )}
+                    <button className="rv2-btn rv2-btn-danger" type="button" onClick={() => void deleteRecording(record)}>
+                      <Trash2 size={14} /> Delete video
+                    </button>
                   </div>
                 ) : (
                   <div className="rv2-assign-row">
@@ -965,6 +985,9 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
                         <X size={14} /> Remove thumbnail
                       </button>
                     )}
+                    <button className="rv2-btn rv2-btn-danger" type="button" onClick={() => void deleteRecording(record)}>
+                      <Trash2 size={14} /> Delete video
+                    </button>
                   </div>
                 )}
               </article>
@@ -1246,6 +1269,8 @@ const RV2_STYLES = `
 .rv2-btn-primary { color: #fff; background: var(--rv2-teal); border-color: var(--rv2-teal); }
 .rv2-btn-ghost { color: var(--rv2-ink); background: var(--rv2-surface); border-color: var(--rv2-border-strong); }
 .rv2-btn-ghost:hover:not(:disabled) { border-color: var(--rv2-teal); color: var(--rv2-teal); }
+.rv2-btn-danger { color: #a73545; background: #fff5f6; border-color: #efc4cb; }
+.rv2-btn-danger:hover:not(:disabled) { color: #fff; background: #b43c4d; border-color: #b43c4d; }
  
 .rv2-guard {
   display: flex;
