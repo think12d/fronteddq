@@ -9470,6 +9470,9 @@ function Admin({ user }: { user: User | null }) {
   const [directoryResourcePageSizes, setDirectoryResourcePageSizes] = useState<Record<number, number>>({});
   const [orderingTopicId, setOrderingTopicId] = useState<number | null>(null);
   const [orderingTopicGroupId, setOrderingTopicGroupId] = useState<number | null>(null);
+  const [directoryArrangeMode, setDirectoryArrangeMode] = useState(false);
+  const [directoryDrag, setDirectoryDrag] = useState<{ resourceId: number; topicId: number } | null>(null);
+  const [directoryDragModuleId, setDirectoryDragModuleId] = useState<number | null>(null);
   const [orderingModuleId, setOrderingModuleId] = useState<number | null>(null);
   const [broadcastTitle, setBroadcastTitle] = useState("");
   const [broadcastMessage, setBroadcastMessage] = useState("");
@@ -10354,6 +10357,54 @@ function Admin({ user }: { user: User | null }) {
       setOrderingTopicGroupId(null);
     }
   };
+  const handleDirectoryResourceDrop = async (targetTopicId: number, targetIndex: number) => {
+    if (!directoryDrag || directoryDrag.resourceId <= 0) return;
+    const sourceTopic = groupedModules.flatMap((item) => item.topics || []).find((item) => item.id === directoryDrag.topicId);
+    const targetTopic = groupedModules.flatMap((item) => item.topics || []).find((item) => item.id === targetTopicId);
+    if (!sourceTopic || !targetTopic) return;
+    const sourceResources = [...(sourceTopic.resources || [])];
+    const dragged = sourceResources.find((item) => item.id === directoryDrag.resourceId);
+    if (!dragged) return;
+    sourceResources.splice(sourceResources.findIndex((item) => item.id === dragged.id), 1);
+    const targetResources = targetTopicId === directoryDrag.topicId ? sourceResources : [...(targetTopic.resources || [])];
+    const insertionIndex = Math.max(0, Math.min(targetIndex, targetResources.length));
+    targetResources.splice(insertionIndex, 0, dragged);
+    setDirectoryDrag(null);
+    try {
+      if (targetTopicId !== directoryDrag.topicId) {
+        await api(`/courses/resources/${dragged.id}`, { method: "PATCH", body: JSON.stringify({ topic_id: targetTopicId }) });
+      }
+      await api(`/courses/topics/${targetTopicId}/resources/order`, { method: "PUT", body: JSON.stringify({ resource_ids: targetResources.map((item) => item.id) }) });
+      if (targetTopicId !== directoryDrag.topicId && sourceResources.length) {
+        await api(`/courses/topics/${directoryDrag.topicId}/resources/order`, { method: "PUT", body: JSON.stringify({ resource_ids: sourceResources.map((item) => item.id) }) });
+      }
+      await refresh();
+      setMessage("File placement saved. Learners will see the new location and order.");
+      adminSuccess("File placement saved", "The file was moved and reordered successfully.");
+    } catch (cause) {
+      setMessage((cause as Error).message || "Unable to save the file placement.");
+      adminError("File placement failed", cause, "Unable to save the new file placement.");
+    }
+  };
+  const handleDirectoryModuleDrop = async (targetModuleId: number) => {
+    if (!directoryArrangeMode || directoryDragModuleId === null || directoryDragModuleId === targetModuleId) return;
+    const ordered = [...modules];
+    const from = ordered.findIndex((item) => item.id === directoryDragModuleId);
+    const to = ordered.findIndex((item) => item.id === targetModuleId);
+    if (from < 0 || to < 0) return;
+    const [moved] = ordered.splice(from, 1);
+    ordered.splice(to, 0, moved);
+    setDirectoryDragModuleId(null);
+    try {
+      await api(`/courses/${selected}/modules/order`, { method: "PUT", body: JSON.stringify({ module_ids: ordered.map((item) => item.id) }) });
+      await refresh();
+      setMessage("Module placement saved. Learners will see the same order.");
+      adminSuccess("Module placement saved", "The module was placed at the selected position.");
+    } catch (cause) {
+      setMessage((cause as Error).message || "Unable to save the module placement.");
+      adminError("Module placement failed", cause, "Unable to save the new module placement.");
+    }
+  };
   const reorderCourseModules = async (
     courseId: number,
     courseModules: Course["modules"],
@@ -11210,6 +11261,17 @@ function Admin({ user }: { user: User | null }) {
             </small>
           </div>
           <div className="directory-filter-tools" role="search">
+            <button
+              type="button"
+              className={`button button-small ${directoryArrangeMode ? "button-dark" : "button-outline"}`}
+              onClick={() => {
+                setDirectoryArrangeMode((enabled) => !enabled);
+                setDirectoryDrag(null);
+              }}
+              aria-pressed={directoryArrangeMode}
+            >
+              {directoryArrangeMode ? "Exit arrange mode" : "Enable arrange mode"}
+            </button>
             <div className="course-module-search">
               <Search size={16} aria-hidden="true" />
               <input
@@ -11245,7 +11307,20 @@ function Admin({ user }: { user: User | null }) {
             const moduleIndex = modules.findIndex((item) => item.id === module.id);
 
             return (
-              <div className="directory-admin-module" key={module.id}>
+              <div
+                className="directory-admin-module"
+                key={module.id}
+                draggable={directoryArrangeMode}
+                onDragStart={() => directoryArrangeMode && setDirectoryDragModuleId(module.id)}
+                onDragEnd={() => setDirectoryDragModuleId(null)}
+                onDragOver={(event) => { if (directoryArrangeMode) event.preventDefault(); }}
+                onDrop={(event) => {
+                  if (!directoryArrangeMode) return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  void handleDirectoryModuleDrop(module.id);
+                }}
+              >
                 <div className="directory-admin-line directory-admin-module-header">
                   <span className="directory-bullet directory-bullet-module">📁</span>
                   <div className="directory-name-wrap">
@@ -11318,7 +11393,16 @@ function Admin({ user }: { user: User | null }) {
                       const resourcePageNumbers = Array.from({ length: resourceTotalPages }, (_, index) => index + 1);
 
                       return (
-                      <div className="directory-admin-topic" key={topic.id}>
+                      <div
+                        className="directory-admin-topic"
+                        key={topic.id}
+                        onDragOver={(event) => { if (directoryArrangeMode) event.preventDefault(); }}
+                        onDrop={(event) => {
+                          if (!directoryArrangeMode) return;
+                          event.preventDefault();
+                          void handleDirectoryResourceDrop(topic.id, topicResources.length);
+                        }}
+                      >
                         <div className="directory-admin-line directory-admin-topic-header">
                           <span className="directory-bullet directory-bullet-topic">📂</span>
                           <div className="directory-name-wrap">
@@ -11380,7 +11464,23 @@ function Admin({ user }: { user: User | null }) {
                         {topicResources.length ? (
                           <div className="directory-file-list">
                             {visibleTopicResources.map((resource) => (
-                              <div className="material-row" key={resource.id}>
+                              <div
+                                className="material-row"
+                                key={resource.id}
+                                draggable={directoryArrangeMode}
+                                onDragStart={(event) => {
+                                  event.stopPropagation();
+                                  if (directoryArrangeMode) setDirectoryDrag({ resourceId: resource.id, topicId: topic.id });
+                                }}
+                                onDragEnd={() => setDirectoryDrag(null)}
+                                onDragOver={(event) => { if (directoryArrangeMode) event.preventDefault(); }}
+                                onDrop={(event) => {
+                                  if (!directoryArrangeMode) return;
+                                  event.preventDefault();
+                                  event.stopPropagation();
+                                  void handleDirectoryResourceDrop(topic.id, topicResources.findIndex((item) => item.id === resource.id));
+                                }}
+                              >
                                 {(() => {
                                   const resourceIndex = topicResources.findIndex((item) => item.id === resource.id);
                                   const filename = resource.original_filename || resource.title || "Unnamed file";
