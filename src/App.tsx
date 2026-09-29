@@ -10369,6 +10369,24 @@ function Admin({ user }: { user: User | null }) {
     const targetResources = targetTopicId === directoryDrag.topicId ? sourceResources : [...(targetTopic.resources || [])];
     const insertionIndex = Math.max(0, Math.min(targetIndex, targetResources.length));
     targetResources.splice(insertionIndex, 0, dragged);
+    setCourses((currentCourses) => currentCourses.map((course) => {
+      if (course.id !== Number(selected)) return course;
+      return {
+        ...course,
+        modules: course.modules.map((item) => ({
+          ...item,
+          topics: item.topics.map((itemTopic) => {
+            if (itemTopic.id === directoryDrag.topicId) {
+              return { ...itemTopic, resources: sourceResources.map((resource, index) => ({ ...resource, sort_order: index + 1 })) };
+            }
+            if (itemTopic.id === targetTopicId) {
+              return { ...itemTopic, resources: targetResources.map((resource, index) => ({ ...resource, sort_order: index + 1 })) };
+            }
+            return itemTopic;
+          }),
+        })),
+      };
+    }));
     setDirectoryDrag(null);
     try {
       if (targetTopicId !== directoryDrag.topicId) {
@@ -10394,6 +10412,9 @@ function Admin({ user }: { user: User | null }) {
     if (from < 0 || to < 0) return;
     const [moved] = ordered.splice(from, 1);
     ordered.splice(to, 0, moved);
+    setCourses((currentCourses) => currentCourses.map((course) => course.id === Number(selected)
+      ? { ...course, modules: ordered.map((item, index) => ({ ...item, sort_order: index + 1 })) }
+      : course));
     setDirectoryDragModuleId(null);
     try {
       await api(`/courses/${selected}/modules/order`, { method: "PUT", body: JSON.stringify({ module_ids: ordered.map((item) => item.id) }) });
