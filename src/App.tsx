@@ -1,4 +1,5 @@
 import {
+  Fragment,
   useEffect,
   useMemo,
   useRef,
@@ -11491,6 +11492,15 @@ function Admin({ user }: { user: User | null }) {
                         {topicResources.length ? (
                           <div className="directory-file-list">
                             {visibleTopicResources.map((resource) => (
+                              <Fragment key={`drop-before-${resource.id}`}>
+                              {directoryArrangeMode && (
+                                <div
+                                  className="directory-drop-zone"
+                                  style={{ border: "1px dashed #0f8b8d", borderRadius: 8, padding: "6px 10px", margin: "4px 0", textAlign: "center", color: "#0f6d5c", fontSize: 12, background: "rgba(15,139,141,0.06)" }}
+                                  onDragOver={(event) => { event.preventDefault(); autoScrollDuringDrag(event.clientY); }}
+                                  onDrop={(event) => { event.preventDefault(); event.stopPropagation(); void handleDirectoryResourceDrop(topic.id, topicResources.findIndex((item) => item.id === resource.id)); }}
+                                >Drop file here</div>
+                              )}
                               <div
                                 className="material-row"
                                 key={resource.id}
@@ -11505,7 +11515,9 @@ function Admin({ user }: { user: User | null }) {
                                   if (!directoryArrangeMode) return;
                                   event.preventDefault();
                                   event.stopPropagation();
-                                  void handleDirectoryResourceDrop(topic.id, topicResources.findIndex((item) => item.id === resource.id));
+                                  const targetIndex = topicResources.findIndex((item) => item.id === resource.id);
+                                  const insertAfter = event.clientY > event.currentTarget.getBoundingClientRect().top + event.currentTarget.getBoundingClientRect().height / 2;
+                                  void handleDirectoryResourceDrop(topic.id, targetIndex + (insertAfter ? 1 : 0));
                                 }}
                               >
                                 {(() => {
@@ -11591,7 +11603,16 @@ function Admin({ user }: { user: User | null }) {
                                   );
                                 })()}
                               </div>
+                              </Fragment>
                             ))}
+                            {directoryArrangeMode && (
+                              <div
+                                className="directory-drop-zone"
+                                style={{ border: "1px dashed #0f8b8d", borderRadius: 8, padding: "6px 10px", margin: "4px 0", textAlign: "center", color: "#0f6d5c", fontSize: 12, background: "rgba(15,139,141,0.06)" }}
+                                onDragOver={(event) => { event.preventDefault(); autoScrollDuringDrag(event.clientY); }}
+                                onDrop={(event) => { event.preventDefault(); event.stopPropagation(); void handleDirectoryResourceDrop(topic.id, topicResources.length); }}
+                              >Drop file at the end</div>
+                            )}
                           </div>
                         ) : (
                           <div className="empty-module-note">No files in this topic yet.</div>
