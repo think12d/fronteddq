@@ -107,6 +107,12 @@ const adminAppUrl =
   import.meta.env.VITE_ADMIN_URL || "http://localhost:5174/admin/login";
 const learnerAppUrl =
   import.meta.env.VITE_LEARNER_URL || "http://localhost:5173/login";
+
+function autoScrollDuringDrag(clientY: number): void {
+  const edge = 120;
+  const distance = clientY < edge ? clientY - edge : clientY > window.innerHeight - edge ? clientY - (window.innerHeight - edge) : 0;
+  if (distance) window.scrollBy({ top: Math.sign(distance) * Math.min(28, Math.max(8, Math.abs(distance) / 3)), behavior: "auto" });
+}
 type QuestionBankOptions = {
   available: boolean;
   years: number[];
@@ -11334,7 +11340,7 @@ function Admin({ user }: { user: User | null }) {
                 draggable={directoryArrangeMode}
                 onDragStart={() => directoryArrangeMode && setDirectoryDragModuleId(module.id)}
                 onDragEnd={() => setDirectoryDragModuleId(null)}
-                onDragOver={(event) => { if (directoryArrangeMode) event.preventDefault(); }}
+                onDragOver={(event) => { if (directoryArrangeMode) { event.preventDefault(); autoScrollDuringDrag(event.clientY); } }}
                 onDrop={(event) => {
                   if (!directoryArrangeMode) return;
                   event.preventDefault();
@@ -11417,7 +11423,7 @@ function Admin({ user }: { user: User | null }) {
                       <div
                         className="directory-admin-topic"
                         key={topic.id}
-                        onDragOver={(event) => { if (directoryArrangeMode) event.preventDefault(); }}
+                        onDragOver={(event) => { if (directoryArrangeMode) { event.preventDefault(); autoScrollDuringDrag(event.clientY); } }}
                         onDrop={(event) => {
                           if (!directoryArrangeMode) return;
                           event.preventDefault();
@@ -11494,7 +11500,7 @@ function Admin({ user }: { user: User | null }) {
                                   if (directoryArrangeMode) setDirectoryDrag({ resourceId: resource.id, topicId: topic.id });
                                 }}
                                 onDragEnd={() => setDirectoryDrag(null)}
-                                onDragOver={(event) => { if (directoryArrangeMode) event.preventDefault(); }}
+                                onDragOver={(event) => { if (directoryArrangeMode) { event.preventDefault(); autoScrollDuringDrag(event.clientY); } }}
                                 onDrop={(event) => {
                                   if (!directoryArrangeMode) return;
                                   event.preventDefault();
