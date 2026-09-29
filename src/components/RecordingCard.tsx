@@ -155,6 +155,8 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
   const [uploading, setUploading] = useState(false);
   const [assigningId, setAssigningId] = useState<number | null>(null);
   const [orderingCourseId, setOrderingCourseId] = useState<number | null>(null);
+  const [arrangeMode, setArrangeMode] = useState(false);
+  const [dragRecordId, setDragRecordId] = useState<number | null>(null);
   const [tab, setTab] = useState<"all" | "assigned" | "unassigned">("all");
   const [search, setSearch] = useState("");
   const [courseFilter, setCourseFilter] = useState("");
@@ -318,6 +320,32 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
       const messageText = (cause as Error).message || "Could not save the video order.";
       setError(messageText);
       notifications.showToast({ kind: "error", title: "Reorder failed", message: messageText });
+    } finally {
+      setOrderingCourseId(null);
+    }
+  };
+
+  const dropCourseRecording = async (target: AdminRecordedVideo) => {
+    if (!arrangeMode || dragRecordId === null || dragRecordId === target.id) return;
+    const targetCourseId = target.course_id ?? (target.live_class_id ? liveClassById.get(target.live_class_id)?.course_id : undefined);
+    if (!targetCourseId) return;
+    const orderedRecords = records.filter((item) => {
+      const itemCourseId = item.course_id ?? (item.live_class_id ? liveClassById.get(item.live_class_id)?.course_id : undefined);
+      return itemCourseId === targetCourseId;
+    }).sort((left, right) => (left.display_order ?? Number.MAX_SAFE_INTEGER) - (right.display_order ?? Number.MAX_SAFE_INTEGER) || left.id - right.id);
+    const from = orderedRecords.findIndex((item) => item.id === dragRecordId);
+    const to = orderedRecords.findIndex((item) => item.id === target.id);
+    if (from < 0 || to < 0) return;
+    const [moved] = orderedRecords.splice(from, 1);
+    orderedRecords.splice(to, 0, moved);
+    setDragRecordId(null);
+    setOrderingCourseId(targetCourseId);
+    try {
+      await api("/admin/recorded-videos/reorder", { method: "PATCH", body: JSON.stringify({ course_id: targetCourseId, items: orderedRecords.map((item, position) => ({ id: item.id, position })) }) });
+      await load();
+      setNotice("Video placement saved. Learners will see the same order.");
+    } catch (cause) {
+      setError((cause as Error).message || "Could not save the video placement.");
     } finally {
       setOrderingCourseId(null);
     }
@@ -642,6 +670,14 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
       </div>
 
       <div className="rv2-toolbar">
+        <button
+          type="button"
+          className={`rv2-tab ${arrangeMode ? "is-active" : ""}`}
+          onClick={() => { setArrangeMode((enabled) => !enabled); setDragRecordId(null); }}
+          aria-pressed={arrangeMode}
+        >
+          {arrangeMode ? "Exit arrange mode" : "Enable arrange mode"}
+        </button>
         <div className="rv2-search">
           <Search size={16} />
           <input
@@ -712,6 +748,11 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
               <article
                 className={`rv2-card ${assigned ? "rv2-card-assigned" : "rv2-card-unassigned"}`}
                 key={record.id}
+                draggable={arrangeMode && assigned}
+                onDragStart={() => arrangeMode && assigned && setDragRecordId(record.id)}
+                onDragEnd={() => setDragRecordId(null)}
+                onDragOver={(event) => { if (arrangeMode && assigned) event.preventDefault(); }}
+                onDrop={(event) => { if (arrangeMode && assigned) { event.preventDefault(); void dropCourseRecording(record); } }}
                 style={{ animationDelay: `${(index % pageSize) * 35}ms` }}
               >
                 <RecordedVideoThumbnail record={record} />
