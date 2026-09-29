@@ -10403,7 +10403,6 @@ function Admin({ user }: { user: User | null }) {
       if (targetTopicId !== directoryDrag.topicId && sourceResources.length) {
         await api(`/courses/topics/${directoryDrag.topicId}/resources/order`, { method: "PUT", body: JSON.stringify({ resource_ids: sourceResources.map((item) => item.id) }) });
       }
-      await refresh();
       setMessage("File placement saved. Learners will see the new location and order.");
       adminSuccess("File placement saved", "The file was moved and reordered successfully.");
     } catch (cause) {
@@ -10425,7 +10424,6 @@ function Admin({ user }: { user: User | null }) {
     setDirectoryDragModuleId(null);
     try {
       await api(`/courses/${selected}/modules/order`, { method: "PUT", body: JSON.stringify({ module_ids: ordered.map((item) => item.id) }) });
-      await refresh();
       setMessage("Module placement saved. Learners will see the same order.");
       adminSuccess("Module placement saved", "The module was placed at the selected position.");
     } catch (cause) {
