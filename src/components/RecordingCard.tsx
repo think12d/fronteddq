@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
   Check,
   ChevronLeft,
@@ -755,6 +755,14 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
             const pendingClass = pendingClassByRecord[record.id] ?? "";
             const availableLiveClasses = liveClasses.filter((item) => String(item.course_id) === pendingCourse);
             return (
+              <Fragment key={`record-drop-${record.id}`}>
+              {arrangeMode && assigned && (
+                <div
+                  style={{ border: "1px dashed #0f8b8d", borderRadius: 8, padding: "6px 10px", margin: "4px 0", textAlign: "center", color: "#0f6d5c", fontSize: 12, background: "rgba(15,139,141,0.06)" }}
+                  onDragOver={(event) => { event.preventDefault(); autoScrollDuringDrag(event.clientY); }}
+                  onDrop={(event) => { event.preventDefault(); event.stopPropagation(); void dropCourseRecording(record); }}
+                >Drop video here</div>
+              )}
               <article
                 className={`rv2-card ${assigned ? "rv2-card-assigned" : "rv2-card-unassigned"}`}
                 key={record.id}
@@ -960,8 +968,10 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
                   </div>
                 )}
               </article>
+              </Fragment>
             );
           })}
+          {arrangeMode && <div style={{ border: "1px dashed #0f8b8d", borderRadius: 8, padding: "6px 10px", margin: "4px 0", textAlign: "center", color: "#0f6d5c", fontSize: 12, background: "rgba(15,139,141,0.06)" }}>Drop video at the end</div>}
         </div>
       )}
 
