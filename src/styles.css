@@ -4758,6 +4758,22 @@ textarea { min-height: 108px; }
   gap: 8px;
 }
 
+.directory-position-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.directory-position-control input {
+  width: 52px;
+  border: 1px solid rgba(19, 54, 79, 0.18);
+  border-radius: 7px;
+  padding: 5px 6px;
+  background: #fff;
+}
+
 .directory-topic-group {
   display: grid;
   gap: 12px;
