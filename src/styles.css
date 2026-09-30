@@ -6864,6 +6864,19 @@ textarea { min-height: 108px; }
   box-shadow: 0 0 0 4px rgba(45, 184, 145, 0.12);
 }
 
+.recording-order-badge,
+.resource-order-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 4px 9px;
+  background: rgba(18, 145, 137, 0.1);
+  color: #11766e;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
 .recorded-library-head h3 {
   margin: 0;
   font-size: clamp(1.3rem, 2vw, 1.9rem);
@@ -9613,6 +9626,10 @@ textarea { min-height: 108px; }
 .course-page .resource-pills {
   display: grid;
   gap: 10px;
+}
+.course-page .resource-item-with-order {
+  display: grid;
+  gap: 6px;
 }
 
 .course-page .resource-media {
