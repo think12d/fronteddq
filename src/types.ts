@@ -44,6 +44,7 @@ export type RecordedLibraryFile = QuestionLibraryFile & {
   meeting_name?: string | null;
   session_label: string;
   recorded_at?: string | null;
+  display_order?: number | null;
   play_url: string;
   download_url: string;
 };
