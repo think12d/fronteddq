@@ -2331,6 +2331,7 @@ function AdminUserAccessDetailPage({ user }: { user: User | null }) {
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState<'overview' | 'course-access' | 'activity' | 'login-history'>('overview');
   const [grantForm, setGrantForm] = useState({ course_id: '', live_access_enabled: false, notes: '', expires_at: '' });
+  const [entitlementSaving, setEntitlementSaving] = useState<string | null>(null);
   const [revokeTarget, setRevokeTarget] = useState<{ courseId: number; courseTitle: string } | null>(null);
 
   const reload = async () => {
@@ -2402,6 +2403,23 @@ function AdminUserAccessDetailPage({ user }: { user: User | null }) {
       setError((cause as Error).message || 'Unable to revoke course access.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const toggleEntitlement = async (product: 'mock_test_unlimited_access' | 'question_archive_access', active: boolean) => {
+    if (!userId) return;
+    setEntitlementSaving(product);
+    setError('');
+    try {
+      await api(`/admin/user-access/${userId}/entitlement${active ? '' : '/revoke'}`, {
+        method: 'POST',
+        body: JSON.stringify({ product, notes: active ? 'Granted by admin' : 'Revoked by admin' }),
+      });
+      await reload();
+    } catch (cause) {
+      setError((cause as Error).message || 'Unable to update feature access.');
+    } finally {
+      setEntitlementSaving(null);
     }
   };
 
@@ -2540,6 +2558,30 @@ function AdminUserAccessDetailPage({ user }: { user: User | null }) {
                 <button className="button button-dark" type="submit" disabled={saving}>{saving ? 'Saving…' : 'Grant Access'}</button>
               </div>
             </form>
+
+            <div className="panel admin-form-panel">
+              <div className="panel-header-row compact-header">
+                <div>
+                  <span className="eyebrow subtle">Platform features</span>
+                  <h3>Feature Access</h3>
+                </div>
+              </div>
+              <p className="muted small-copy">Grant either feature independently. These grants act as paid access and do not change course enrollment.</p>
+              {[
+                { product: 'mock_test_unlimited_access' as const, label: 'Unlimited Mock Tests', note: 'Skip the free-attempt limit.' },
+                { product: 'question_archive_access' as const, label: 'Question Archive', note: 'Unlock protected archive files.' },
+              ].map((item) => {
+                const current = (detail.entitlements || []).find((entry: any) => entry.product === item.product && entry.active);
+                return (
+                  <div className="permission-row permission-toggle-row" key={item.product}>
+                    <div><strong>{item.label}</strong><small>{item.note}</small></div>
+                    <button type="button" className={`toggle-switch ${current ? 'is-on' : ''}`} disabled={entitlementSaving === item.product} onClick={() => void toggleEntitlement(item.product, !current)} aria-label={`Toggle ${item.label}`}>
+                      <span className="toggle-slider" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
 
             <div className="panel admin-access-current-panel">
               <div className="panel-header-row compact-header">
