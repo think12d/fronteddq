@@ -4907,7 +4907,9 @@ function TopicRoadmapRow({
     }
   };
 
-  const resources = topic.resources || [];
+  const resources = [...(topic.resources || [])].sort(
+    (left, right) => (left.sort_order ?? Number.MAX_SAFE_INTEGER) - (right.sort_order ?? Number.MAX_SAFE_INTEGER) || left.id - right.id,
+  );
   const resourceTotalPages = Math.max(1, Math.ceil(resources.length / resourcePageSize));
   const safeResourcePage = Math.min(resourcePage, resourceTotalPages);
   const visibleResources = resources.slice(
