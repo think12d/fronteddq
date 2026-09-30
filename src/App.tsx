@@ -4921,7 +4921,7 @@ function TopicRoadmapRow({
   return (
     <div className="module-topic-row" id={`topic-${topic.id}`}>
       <span className="module-topic-index">
-        {String(index + 1).padStart(2, "0")}
+        {String(topic.sort_order ?? index + 1).padStart(2, "0")}
       </span>
 
       <div className="module-topic-copy">
@@ -11502,7 +11502,7 @@ function Admin({ user }: { user: User | null }) {
                         <div className="directory-admin-line directory-admin-topic-header">
                           <span className="directory-bullet directory-bullet-topic">📂</span>
                           <div className="directory-name-wrap">
-                            <b>{topic.title}</b>
+                            <b>#{topic.sort_order ?? topicIndex + 1} · {topic.title}</b>
                             <small>{(topic.resources || []).length} files</small>
                           </div>
                           <div className="directory-action-row">
