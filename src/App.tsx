@@ -9481,6 +9481,8 @@ function Admin({ user }: { user: User | null }) {
   const [directoryDrag, setDirectoryDrag] = useState<{ resourceId: number; topicId: number } | null>(null);
   const [directoryDragModuleId, setDirectoryDragModuleId] = useState<number | null>(null);
   const [orderingModuleId, setOrderingModuleId] = useState<number | null>(null);
+  const [modulePositionDraft, setModulePositionDraft] = useState("");
+  const [resourcePositionDrafts, setResourcePositionDrafts] = useState<Record<number, string>>({});
   const [broadcastTitle, setBroadcastTitle] = useState("");
   const [broadcastMessage, setBroadcastMessage] = useState("");
   const [broadcastAudience, setBroadcastAudience] = useState<"all" | "student" | "admin">("all");
@@ -10338,6 +10340,32 @@ function Admin({ user }: { user: User | null }) {
       setOrderingTopicId(null);
     }
   };
+  const moveTopicResourceToPosition = async (topicId: number, resources: Topic["resources"], resourceId: number, rawPosition: string) => {
+    if (orderingTopicId !== null) return;
+    const requested = Number(rawPosition);
+    if (!Number.isInteger(requested) || requested < 1 || requested > resources.length) {
+      setMessage(`Enter a file position from 1 to ${resources.length}.`);
+      return;
+    }
+    const reordered = [...resources];
+    const from = reordered.findIndex((resource) => resource.id === resourceId);
+    if (from < 0) return;
+    const [moved] = reordered.splice(from, 1);
+    reordered.splice(requested - 1, 0, moved);
+    setOrderingTopicId(topicId);
+    try {
+      await api(`/courses/topics/${topicId}/resources/order`, { method: "PUT", body: JSON.stringify({ resource_ids: reordered.map((resource) => resource.id) }) });
+      await refresh();
+      setResourcePositionDrafts((current) => ({ ...current, [resourceId]: "" }));
+      setMessage(`File moved to position ${requested}. This works across pagination pages.`);
+      adminSuccess("File position saved", "The file order was updated in the database.");
+    } catch (cause) {
+      setMessage((cause as Error).message || "Could not save the file position.");
+      adminError("File reorder failed", cause, "Unable to save the file position.");
+    } finally {
+      setOrderingTopicId(null);
+    }
+  };
   const reorderModuleTopics = async (
     moduleId: number,
     moduleTopics: Topic[],
@@ -10454,6 +10482,32 @@ function Admin({ user }: { user: User | null }) {
     } catch (cause) {
       setMessage((cause as Error).message || "Could not save the module order.");
       adminError("Module reorder failed", cause, "Unable to save the new module order.");
+    } finally {
+      setOrderingModuleId(null);
+    }
+  };
+  const moveCourseModuleToPosition = async (courseId: number, courseModules: Course["modules"], moduleId: number, rawPosition: string) => {
+    if (orderingModuleId !== null) return;
+    const requested = Number(rawPosition);
+    if (!Number.isInteger(requested) || requested < 1 || requested > courseModules.length) {
+      setMessage(`Enter a module position from 1 to ${courseModules.length}.`);
+      return;
+    }
+    const reordered = [...courseModules];
+    const from = reordered.findIndex((module) => module.id === moduleId);
+    if (from < 0) return;
+    const [moved] = reordered.splice(from, 1);
+    reordered.splice(requested - 1, 0, moved);
+    setOrderingModuleId(moduleId);
+    try {
+      await api(`/courses/${courseId}/modules/order`, { method: "PUT", body: JSON.stringify({ module_ids: reordered.map((module) => module.id) }) });
+      await refresh();
+      setModulePositionDraft("");
+      setMessage(`Module moved to position ${requested}.`);
+      adminSuccess("Module position saved", "The module order was updated in the database.");
+    } catch (cause) {
+      setMessage((cause as Error).message || "Could not save the module position.");
+      adminError("Module reorder failed", cause, "Unable to save the module position.");
     } finally {
       setOrderingModuleId(null);
     }
@@ -11351,9 +11405,16 @@ function Admin({ user }: { user: User | null }) {
                   <span className="directory-bullet directory-bullet-module">📁</span>
                   <div className="directory-name-wrap">
                     <b>{module.title}</b>
-                    <small>{moduleTotalFiles} files</small>
+                    <small>#{module.sort_order ?? moduleIndex + 1} · {moduleTotalFiles} files</small>
                   </div>
                   <div className="directory-action-row">
+                    {directoryArrangeMode && (
+                      <label className="directory-position-control">
+                        <span>Position</span>
+                        <input type="number" min={1} max={modules.length} value={modulePositionDraft} placeholder={String(moduleIndex + 1)} onChange={(event) => setModulePositionDraft(event.target.value)} />
+                        <button type="button" className="button-link" disabled={orderingModuleId !== null} onClick={() => void moveCourseModuleToPosition(Number(selected), modules, module.id, modulePositionDraft)}>Move</button>
+                      </label>
+                    )}
                     <button
                       type="button"
                       className="button-link"
@@ -11535,6 +11596,13 @@ function Admin({ user }: { user: User | null }) {
                                   </small>
                                 </div>
                                 <div className="resource-actions">
+                                  {directoryArrangeMode && (
+                                    <label className="directory-position-control">
+                                      <span>Position</span>
+                                      <input type="number" min={1} max={topicResources.length} value={resourcePositionDrafts[resource.id] ?? ""} placeholder={String(resourceIndex + 1)} onChange={(event) => setResourcePositionDrafts((current) => ({ ...current, [resource.id]: event.target.value }))} />
+                                      <button type="button" className="button-link" disabled={orderingTopicId === topic.id} onClick={() => void moveTopicResourceToPosition(topic.id, topicResources, resource.id, resourcePositionDrafts[resource.id] ?? "")}>Move</button>
+                                    </label>
+                                  )}
                                   <button
                                     className="button-link"
                                     type="button"
