@@ -4938,9 +4938,15 @@ function TopicRoadmapRow({
             {completed ? "Completed" : "Mark complete"}
           </button>
           <div className="resource-pills">
-            {visibleResources.map((resource) => (
-              <ResourceMedia resource={resource} key={resource.id} />
-            ))}
+            {visibleResources.map((resource, visibleIndex) => {
+              const resourceOrder = resource.sort_order ?? resources.findIndex((item) => item.id === resource.id);
+              return (
+                <div className="resource-item-with-order" key={resource.id}>
+                  <span className="resource-order-badge">File #{(resourceOrder >= 0 ? resourceOrder : visibleIndex) + 1}</span>
+                  <ResourceMedia resource={resource} />
+                </div>
+              );
+            })}
             {resources.length > 0 && (
               <div className="resource-pagination" aria-label={`${topic.title} resources pagination`}>
                 <div className="resource-page-size">
@@ -8263,7 +8269,7 @@ function RecordedVideoLibraryPage({ user }: { user: User | null }) {
           </div>
 
           <section className="recorded-library-grid">
-            {visibleItems.map((item) => {
+            {visibleItems.map((item, visibleIndex) => {
               const meetingName =
                 item.meeting_name?.trim() ||
                 item.display_name?.trim() ||
@@ -8303,6 +8309,7 @@ function RecordedVideoLibraryPage({ user }: { user: User | null }) {
                       <span className="recording-tag">
                         <span className="dot" /> LIVE CLASS · {item.recorded_at ? new Date(item.recorded_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : item.session_label || "Recorded class"}
                       </span>
+                      <span className="recording-order-badge">Video #{(item.display_order ?? visibleIndex) + 1}</span>
                       <h3>{meetingName}</h3>
                     </div>
 
