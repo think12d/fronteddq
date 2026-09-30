@@ -11411,8 +11411,8 @@ function Admin({ user }: { user: User | null }) {
                     {directoryArrangeMode && (
                       <label className="directory-position-control">
                         <span>Position</span>
-                        <input type="number" min={1} max={modules.length} value={modulePositionDraft} placeholder={String(moduleIndex + 1)} onChange={(event) => setModulePositionDraft(event.target.value)} />
-                        <button type="button" className="button-link" disabled={orderingModuleId !== null} onClick={() => void moveCourseModuleToPosition(Number(selected), modules, module.id, modulePositionDraft)}>Move</button>
+                        <input type="number" min={1} max={modules.length} aria-label={`New position for module ${module.title}`} value={modulePositionDraft} placeholder={String(moduleIndex + 1)} onChange={(event) => setModulePositionDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void moveCourseModuleToPosition(Number(selected), modules, module.id, modulePositionDraft); } }} />
+                        <button type="button" className="button-link" disabled={orderingModuleId !== null} onClick={() => void moveCourseModuleToPosition(Number(selected), modules, module.id, modulePositionDraft)}>Save position</button>
                       </label>
                     )}
                     <button
@@ -11599,8 +11599,8 @@ function Admin({ user }: { user: User | null }) {
                                   {directoryArrangeMode && (
                                     <label className="directory-position-control">
                                       <span>Position</span>
-                                      <input type="number" min={1} max={topicResources.length} value={resourcePositionDrafts[resource.id] ?? ""} placeholder={String(resourceIndex + 1)} onChange={(event) => setResourcePositionDrafts((current) => ({ ...current, [resource.id]: event.target.value }))} />
-                                      <button type="button" className="button-link" disabled={orderingTopicId === topic.id} onClick={() => void moveTopicResourceToPosition(topic.id, topicResources, resource.id, resourcePositionDrafts[resource.id] ?? "")}>Move</button>
+                                      <input type="number" min={1} max={topicResources.length} aria-label={`New position for ${filename}`} value={resourcePositionDrafts[resource.id] ?? ""} placeholder={String(resourceIndex + 1)} onChange={(event) => setResourcePositionDrafts((current) => ({ ...current, [resource.id]: event.target.value }))} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void moveTopicResourceToPosition(topic.id, topicResources, resource.id, resourcePositionDrafts[resource.id] ?? ""); } }} />
+                                      <button type="button" className="button-link" disabled={orderingTopicId === topic.id} onClick={() => void moveTopicResourceToPosition(topic.id, topicResources, resource.id, resourcePositionDrafts[resource.id] ?? "")}>Save position</button>
                                     </label>
                                   )}
                                   <button
