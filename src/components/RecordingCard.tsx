@@ -170,6 +170,7 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
   const [sortBy, setSortBy] = useState<"manual" | "newest" | "oldest" | "name">("manual");
   const [pendingCourseByRecord, setPendingCourseByRecord] = useState<Record<number, string>>({});
   const [pendingClassByRecord, setPendingClassByRecord] = useState<Record<number, string>>({});
+  const [positionDraftByRecord, setPositionDraftByRecord] = useState<Record<number, string>>({});
   const [editingAssignmentByRecord, setEditingAssignmentByRecord] = useState<Record<number, boolean>>({});
   const [page, setPage] = useState(1);
   const [notice, setNotice] = useState("");
@@ -356,6 +357,36 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
       setNotice("Video placement saved. Learners will see the same order.");
     } catch (cause) {
       setError((cause as Error).message || "Could not save the video placement.");
+    } finally {
+      setOrderingCourseId(null);
+    }
+  };
+
+  const moveCourseRecordingToPosition = async (record: AdminRecordedVideo) => {
+    const targetCourseId = record.course_id ?? (record.live_class_id ? liveClassById.get(record.live_class_id)?.course_id : undefined);
+    if (!targetCourseId || orderingCourseId !== null) return;
+    const orderedRecords = records.filter((item) => {
+      const itemCourseId = item.course_id ?? (item.live_class_id ? liveClassById.get(item.live_class_id)?.course_id : undefined);
+      return itemCourseId === targetCourseId;
+    }).sort((left, right) => (left.display_order ?? Number.MAX_SAFE_INTEGER) - (right.display_order ?? Number.MAX_SAFE_INTEGER) || left.id - right.id);
+    const currentIndex = orderedRecords.findIndex((item) => item.id === record.id);
+    if (currentIndex < 0) return;
+    const requested = Number(positionDraftByRecord[record.id]);
+    if (!Number.isInteger(requested) || requested < 1 || requested > orderedRecords.length) {
+      setError(`Enter a position from 1 to ${orderedRecords.length}.`);
+      return;
+    }
+    const [moved] = orderedRecords.splice(currentIndex, 1);
+    orderedRecords.splice(requested - 1, 0, moved);
+    setOrderingCourseId(targetCourseId);
+    setError("");
+    try {
+      await api("/admin/recorded-videos/reorder", { method: "PATCH", body: JSON.stringify({ course_id: targetCourseId, items: orderedRecords.map((item, position) => ({ id: item.id, position })) }) });
+      await load();
+      setNotice(`Video moved to position ${requested}. This also works across pagination pages.`);
+      setPositionDraftByRecord((current) => ({ ...current, [record.id]: "" }));
+    } catch (cause) {
+      setError((cause as Error).message || "Could not save the video position.");
     } finally {
       setOrderingCourseId(null);
     }
@@ -742,8 +773,8 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
         </select>
       </div>
 
-      {sortBy === "manual" && !courseFilter && (
-        <div className="rv2-meta-row" role="status">Select a course to reorder videos; learners will see the saved course order.</div>
+      {arrangeMode && (
+        <div className="rv2-meta-row" role="status">Drag videos to reorder visible items, or enter an exact position to move a video across pagination pages. Ordering is saved per course.</div>
       )}
 
       {loading ? (
@@ -800,6 +831,7 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
                     {assigned ? "Assigned" : "Unassigned"}
                   </span>
                   {assigned && <span className="rv2-meta">#{(record.display_order ?? courseOrderIndex) + 1}</span>}
+                  {!assigned && <span className="rv2-meta">Unordered</span>}
                 </div>
 
                 <div className="rv2-meta-row">
@@ -852,6 +884,20 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
                         >
                           <ChevronDown size={14} />
                         </button>
+                      </div>
+                    )}
+                    {arrangeMode && assigned && orderedCourseRecords.length > 0 && (
+                      <div className="rv2-position-control" title="Move to an exact position, including another pagination page">
+                        <label>Position</label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={orderedCourseRecords.length}
+                          value={positionDraftByRecord[record.id] ?? ""}
+                          placeholder={String(courseOrderIndex + 1)}
+                          onChange={(event) => setPositionDraftByRecord((current) => ({ ...current, [record.id]: event.target.value }))}
+                        />
+                        <button className="rv2-btn rv2-btn-ghost" type="button" disabled={orderingCourseId !== null} onClick={() => void moveCourseRecordingToPosition(record)}>Move</button>
                       </div>
                     )}
                     <button
@@ -1485,6 +1531,9 @@ const RV2_STYLES = `
 .rv2-info-label { font-size: 11px; color: var(--rv2-ink-soft); font-weight: 600; text-transform: none; }
 .rv2-info-value { font-size: 13.5px; font-weight: 600; }
 .rv2-row-actions { display: flex; gap: 6px; margin-left: auto; flex-wrap: wrap; }
+.rv2-position-control { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; }
+.rv2-position-control label { font-size: 11px; font-weight: 700; color: var(--rv2-ink-soft); }
+.rv2-position-control input { width: 58px; border: 1px solid var(--rv2-border-strong); border-radius: 7px; padding: 7px 6px; font-size: 12px; background: var(--rv2-surface); color: var(--rv2-ink); }
  
 /* ---------- assign form ---------- */
 .rv2-assign-row {
