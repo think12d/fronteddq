@@ -893,11 +893,13 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
                           type="number"
                           min={1}
                           max={orderedCourseRecords.length}
+                          aria-label={`New position for ${record.file_name}`}
                           value={positionDraftByRecord[record.id] ?? ""}
                           placeholder={String(courseOrderIndex + 1)}
                           onChange={(event) => setPositionDraftByRecord((current) => ({ ...current, [record.id]: event.target.value }))}
+                          onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void moveCourseRecordingToPosition(record); } }}
                         />
-                        <button className="rv2-btn rv2-btn-ghost" type="button" disabled={orderingCourseId !== null} onClick={() => void moveCourseRecordingToPosition(record)}>Move</button>
+                        <button className="rv2-btn rv2-btn-ghost" type="button" disabled={orderingCourseId !== null} onClick={() => void moveCourseRecordingToPosition(record)}>Save position</button>
                       </div>
                     )}
                     <button
