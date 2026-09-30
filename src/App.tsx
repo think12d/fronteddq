@@ -9491,6 +9491,7 @@ function Admin({ user }: { user: User | null }) {
   const [directoryDragModuleId, setDirectoryDragModuleId] = useState<number | null>(null);
   const [orderingModuleId, setOrderingModuleId] = useState<number | null>(null);
   const [modulePositionDraft, setModulePositionDraft] = useState("");
+  const [topicPositionDrafts, setTopicPositionDrafts] = useState<Record<number, string>>({});
   const [resourcePositionDrafts, setResourcePositionDrafts] = useState<Record<number, string>>({});
   const [broadcastTitle, setBroadcastTitle] = useState("");
   const [broadcastMessage, setBroadcastMessage] = useState("");
@@ -10397,6 +10398,32 @@ function Admin({ user }: { user: User | null }) {
     } catch (cause) {
       setMessage((cause as Error).message || "Could not save the topic order.");
       adminError("Topic reorder failed", cause, "Unable to save the new topic order.");
+    } finally {
+      setOrderingTopicGroupId(null);
+    }
+  };
+  const moveModuleTopicToPosition = async (moduleId: number, moduleTopics: Topic[], topicId: number, rawPosition: string) => {
+    if (orderingTopicGroupId !== null) return;
+    const requested = Number(rawPosition);
+    if (!Number.isInteger(requested) || requested < 1 || requested > moduleTopics.length) {
+      setMessage(`Enter a topic position from 1 to ${moduleTopics.length}.`);
+      return;
+    }
+    const reordered = [...moduleTopics];
+    const from = reordered.findIndex((topic) => topic.id === topicId);
+    if (from < 0) return;
+    const [moved] = reordered.splice(from, 1);
+    reordered.splice(requested - 1, 0, moved);
+    setOrderingTopicGroupId(moduleId);
+    try {
+      await api(`/courses/modules/${moduleId}/topics/order`, { method: "PUT", body: JSON.stringify({ topic_ids: reordered.map((topic) => topic.id) }) });
+      await refresh();
+      setTopicPositionDrafts((current) => ({ ...current, [topicId]: "" }));
+      setMessage(`Submodule moved to position ${requested}.`);
+      adminSuccess("Submodule position saved", "The topic order was updated in the database.");
+    } catch (cause) {
+      setMessage((cause as Error).message || "Could not save the submodule position.");
+      adminError("Submodule reorder failed", cause, "Unable to save the submodule position.");
     } finally {
       setOrderingTopicGroupId(null);
     }
@@ -11506,6 +11533,13 @@ function Admin({ user }: { user: User | null }) {
                             <small>{(topic.resources || []).length} files</small>
                           </div>
                           <div className="directory-action-row">
+                            {directoryArrangeMode && (
+                              <label className="directory-position-control">
+                                <span>Topic position</span>
+                                <input type="number" min={1} max={(module.topics || []).length} aria-label={`New position for topic ${topic.title}`} value={topicPositionDrafts[topic.id] ?? ""} placeholder={String(topicIndex + 1)} onChange={(event) => setTopicPositionDrafts((current) => ({ ...current, [topic.id]: event.target.value }))} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void moveModuleTopicToPosition(module.id, module.topics || [], topic.id, topicPositionDrafts[topic.id] ?? ""); } }} />
+                                <button type="button" className="button-link" disabled={orderingTopicGroupId === module.id} onClick={() => void moveModuleTopicToPosition(module.id, module.topics || [], topic.id, topicPositionDrafts[topic.id] ?? "")}>Save position</button>
+                              </label>
+                            )}
                             <button
                               type="button"
                               className="button-link"
