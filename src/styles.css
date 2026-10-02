@@ -7894,6 +7894,7 @@ textarea { min-height: 108px; }
   line-height: 1.5;
   word-break: break-word;
 }
+.recorded-cover-thumbnail { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .9; z-index: 0; }
 
 .contact-card em {
   display: block;
