@@ -47,6 +47,7 @@ export type RecordedLibraryFile = QuestionLibraryFile & {
   display_order?: number | null;
   play_url: string;
   download_url: string;
+  thumbnail_url?: string | null;
 };
 
 export type RecordedLibrary = {
