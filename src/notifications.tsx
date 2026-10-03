@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
 type ToastKind = "success" | "error" | "warning" | "info" | "loading";
@@ -19,10 +19,12 @@ type ConfirmRequest = {
   destructive?: boolean;
   onConfirm: () => void | Promise<void>;
 };
+type PromptRequest = { title: string; message?: string; defaultValue?: string; confirmLabel?: string; cancelLabel?: string };
 
 type NotificationContextValue = {
   showToast: (toast: Omit<ToastItem, "id">) => void;
   confirmAction: (request: Omit<ConfirmRequest, "onConfirm"> & { onConfirm: () => void | Promise<void> }) => Promise<boolean>;
+  promptAction: (request: PromptRequest) => Promise<string | null>;
 };
 
 const NotificationContext = createContext<NotificationContextValue | null>(null);
@@ -33,6 +35,7 @@ export function useNotifications() {
     return {
       showToast: () => undefined,
       confirmAction: async () => true,
+      promptAction: async () => null,
     } satisfies NotificationContextValue;
   }
   return context;
@@ -167,10 +170,28 @@ function ConfirmDialog({
   );
 }
 
+function PromptDialog({ request, value, setValue, onClose, onSubmit }: { request: PromptRequest | null; value: string; setValue: (value: string) => void; onClose: () => void; onSubmit: () => void }) {
+  if (!request) return null;
+  return <div role="dialog" aria-modal="true" style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,.68)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1200, padding: 20 }} onClick={onClose}>
+    <form onClick={(event) => event.stopPropagation()} onSubmit={(event) => { event.preventDefault(); onSubmit(); }} style={{ width: "min(420px, calc(100vw - 24px))", background: "#0f172a", border: "1px solid rgba(148,163,184,.25)", borderRadius: 18, boxShadow: "0 24px 80px rgba(15,23,42,.5)", padding: 22, color: "#e2e8f0" }}>
+      <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 10 }}>{request.title}</div>
+      {request.message && <div style={{ fontSize: 14, color: "#cbd5e1", lineHeight: 1.6, marginBottom: 12 }}>{request.message}</div>}
+      <input autoFocus className="input" value={value} onChange={(event) => setValue(event.target.value)} />
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 22 }}>
+        <button className="button button-outline" type="button" onClick={onClose}>{request.cancelLabel || "Cancel"}</button>
+        <button className="button button-dark" type="submit">{request.confirmLabel || "Save"}</button>
+      </div>
+    </form>
+  </div>;
+}
+
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [confirmRequest, setConfirmRequest] = useState<ConfirmRequest | null>(null);
   const [confirmCancel, setConfirmCancel] = useState<(() => void) | null>(null);
+  const [promptRequest, setPromptRequest] = useState<PromptRequest | null>(null);
+  const [promptValue, setPromptValue] = useState("");
+  const promptResolver = useRef<((value: string | null) => void) | null>(null);
 
   const showToast = useCallback((toast: Omit<ToastItem, "id">) => {
     const id = Date.now() + Math.random();
@@ -222,9 +243,19 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     setConfirmCancel(null);
     setConfirmRequest(null);
   }, []);
+  const promptAction = useCallback((request: PromptRequest) => new Promise<string | null>((resolve) => {
+    promptResolver.current = resolve;
+    setPromptValue(request.defaultValue || "");
+    setPromptRequest(request);
+  }), []);
+  const closePrompt = useCallback((value: string | null) => {
+    promptResolver.current?.(value);
+    promptResolver.current = null;
+    setPromptRequest(null);
+  }, []);
 
   return (
-    <NotificationContext.Provider value={{ showToast, confirmAction }}>
+    <NotificationContext.Provider value={{ showToast, confirmAction, promptAction }}>
       {children}
       <ToastViewport toasts={toasts} />
       <ConfirmDialog
@@ -232,6 +263,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         onClose={closeConfirm}
         onConfirmStart={startConfirm}
       />
+      <PromptDialog request={promptRequest} value={promptValue} setValue={setPromptValue} onClose={() => closePrompt(null)} onSubmit={() => closePrompt(promptValue)} />
     </NotificationContext.Provider>
   );
 }
