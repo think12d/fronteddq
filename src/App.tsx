@@ -9536,10 +9536,10 @@ function BatchSalesControls({
 
 function QuestionArchiveAdminPage({ user }: { user: User | null }) {
   const notifications = useNotifications();
-  const [papers, setPapers] = useState<QuestionArchivePaper[]>([]);
+  const [papers, setPapers] = useState<QuestionArchivePaper[]>([]); const [driveFiles, setDriveFiles] = useState<QuestionLibraryFile[]>([]); const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [title, setTitle] = useState(""); const [description, setDescription] = useState(""); const [year, setYear] = useState(""); const [subject, setSubject] = useState(""); const [contentText, setContentText] = useState("{}"); const [isFree, setIsFree] = useState(false); const [isPublished, setIsPublished] = useState(false); const [busy, setBusy] = useState(false); const [loading, setLoading] = useState(true); const [fileKey, setFileKey] = useState(0);
-  const load = async () => { setLoading(true); try { setPapers(await api<QuestionArchivePaper[]>("/question-archive/admin")); } catch (cause) { notifications.showToast({ kind: "error", title: "Archive loading failed", message: (cause as Error).message || "Unable to load question papers." }); } finally { setLoading(false); } };
+  const load = async () => { setLoading(true); try { const [paperResult, driveResult] = await Promise.all([api<QuestionArchivePaper[]>("/question-archive/admin"), api<{ files: QuestionLibraryFile[] }>("/library/admin/question-bank")]); setPapers(paperResult); setDriveFiles(driveResult.files || []); } catch (cause) { notifications.showToast({ kind: "error", title: "Archive loading failed", message: (cause as Error).message || "Unable to load question papers." }); } finally { setLoading(false); } };
   useEffect(() => { if (user) void load(); }, [user]);
   const reset = () => { setEditingId(null); setTitle(""); setDescription(""); setYear(""); setSubject(""); setContentText("{}"); setIsFree(false); setIsPublished(false); setFileKey((value) => value + 1); };
   const edit = (paper: QuestionArchivePaper) => { setEditingId(paper.id); setTitle(paper.title); setDescription(paper.description || ""); setYear(paper.year ? String(paper.year) : ""); setSubject(paper.subject || ""); setContentText(JSON.stringify(paper.content || {}, null, 2)); setIsFree(paper.is_free); setIsPublished(paper.is_published); window.scrollTo({ top: 0, behavior: "smooth" }); };
