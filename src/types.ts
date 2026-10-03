@@ -450,3 +450,16 @@ export type PaginatedGlobalFiles = {
   page_size: number;
   total_pages: number;
 };
+export type QuestionArchivePaper = {
+  id: number;
+  title: string;
+  description: string;
+  year?: number | null;
+  subject: string;
+  is_free: boolean;
+  price_paise: number;
+  currency: string;
+  is_published: boolean;
+  owned: boolean;
+  content?: Record<string, unknown> | null;
+};
