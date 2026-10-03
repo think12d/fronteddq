@@ -361,6 +361,7 @@ function PremiumPaywall({
   feature: "mock" | "live" | "recorded" | "library";
   onPaid: () => Promise<void> | void;
 }) {
+  const notifications = useNotifications();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   if (!access || (feature === "mock" ? access.mock_test_access : access.premium_access)) return null;
@@ -368,14 +369,17 @@ function PremiumPaywall({
   const start = () => {
     setBusy(true);
     setError("");
+    notifications.showToast({ kind: "loading", title: "Preparing payment", message: "Your secure checkout is being prepared…", duration: 6000 });
     void startPremiumCheckout(
       async () => {
         await onPaid();
         setBusy(false);
+        notifications.showToast({ kind: "success", title: "Payment successful", message: "Your premium access is now active." });
       },
       (message) => {
         setBusy(false);
         setError(message);
+        notifications.showToast({ kind: "error", title: "Payment not completed", message });
       },
       feature === "mock" ? { product: "mock_test_unlimited_access" } : {},
     );
@@ -2353,6 +2357,7 @@ function AdminUserAccessPage({ user }: { user: User | null }) {
   );
 }
 function AdminUserAccessDetailPage({ user }: { user: User | null }) {
+  const notifications = useNotifications();
   const { userId } = useParams();
   const [detail, setDetail] = useState<any>(null);
   const [courses, setCourses] = useState<Course[]>([]);
@@ -2438,6 +2443,8 @@ function AdminUserAccessDetailPage({ user }: { user: User | null }) {
 
   const toggleEntitlement = async (product: 'mock_test_unlimited_access' | 'question_archive_access', active: boolean) => {
     if (!userId) return;
+    const confirmed = await notifications.confirmAction({ title: active ? 'Grant feature access' : 'Revoke feature access', message: `${active ? 'Grant' : 'Revoke'} ${product === 'mock_test_unlimited_access' ? 'unlimited mock tests' : 'question archive access'} for this user?`, confirmLabel: active ? 'Grant access' : 'Revoke access', destructive: !active, onConfirm: () => undefined });
+    if (!confirmed) return;
     setEntitlementSaving(product);
     setError('');
     try {
@@ -2446,8 +2453,10 @@ function AdminUserAccessDetailPage({ user }: { user: User | null }) {
         body: JSON.stringify({ product, notes: active ? 'Granted by admin' : 'Revoked by admin' }),
       });
       await reload();
+      notifications.showToast({ kind: "success", title: active ? "Feature access granted" : "Feature access revoked", message: "The user access setting was updated." });
     } catch (cause) {
       setError((cause as Error).message || 'Unable to update feature access.');
+      notifications.showToast({ kind: "error", title: "Feature access update failed", message: (cause as Error).message || "Unable to update feature access." });
     } finally {
       setEntitlementSaving(null);
     }
@@ -4601,6 +4610,7 @@ function CoursePage({ user }: { user: User | null }) {
 }
 
 function PaymentPage({ user }: { user: User | null }) {
+  const notifications = useNotifications();
   const { slug } = useParams();
   const navigate = useNavigate();
   const [course, setCourse] = useState<Course | null>(null);
@@ -4677,14 +4687,17 @@ function PaymentPage({ user }: { user: User | null }) {
   const pay = () => {
     setBusy(true);
     setMessage("");
+    notifications.showToast({ kind: "loading", title: "Starting enrollment", message: "Preparing your secure payment checkout…", duration: 6000 });
     void startPremiumCheckout(
       () => {
         setBusy(false);
+        notifications.showToast({ kind: "success", title: "Enrollment complete", message: "Payment verified and your course access is ready." });
         navigate("/registered-courses", { replace: true });
       },
       (error) => {
         setBusy(false);
         setMessage(error);
+        notifications.showToast({ kind: "error", title: "Payment could not be completed", message: error });
       },
       { course_id: course.id },
     );
@@ -4818,6 +4831,11 @@ function RegisteredCoursesPage({ user }: { user: User | null }) {
 
   useEffect(() => {
     if (user) void load();
+    if (!user) return;
+    const timer = window.setInterval(() => void load(), 15000);
+    const refreshOnReturn = () => { if (document.visibilityState === "visible") void load(); };
+    document.addEventListener("visibilitychange", refreshOnReturn);
+    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", refreshOnReturn); };
   }, [user?.id]);
 
   if (!user) return <Navigate to="/login" replace />;
@@ -6893,13 +6911,12 @@ function StudyPlanner({ user }: { user: User | null }) {
         : "");
     const requestedFocus =
       selectedFocus ||
-      window
-        .prompt(
-          "Which particular UGC NET topic should this plan focus on?",
-          "Teaching Aptitude",
-        )
-        ?.trim() ||
-      "";
+      (await notifications.promptAction({
+        title: "Choose a focus topic",
+        message: "Which particular UGC NET topic should this plan focus on?",
+        defaultValue: "Teaching Aptitude",
+        confirmLabel: "Use topic",
+      }))?.trim() || "";
     if (!requestedFocus) {
       setMessage(
         "A particular topic is required; the planner will not create a generic plan.",
@@ -7642,6 +7659,7 @@ function getLibraryCategory(file: QuestionLibraryFile) {
 }
 
 function QuestionBankPage({ user }: { user: User | null }) {
+  const notifications = useNotifications();
   const [access, setAccess] = useState<PremiumAccess | null>(null);
   const [library, setLibrary] = useState<QuestionLibrary | null>(null);
   const [preview, setPreview] = useState<{
@@ -7687,14 +7705,17 @@ function QuestionBankPage({ user }: { user: User | null }) {
   const startArchiveCheckout = () => {
     setCheckoutBusy(true);
     setError("");
+    notifications.showToast({ kind: "loading", title: "Preparing payment", message: "Preparing secure question-bank access checkout…", duration: 6000 });
     void startPremiumCheckout(
       () => {
         load();
         setCheckoutBusy(false);
+        notifications.showToast({ kind: "success", title: "Access unlocked", message: "Question-bank access is now active." });
       },
       (message) => {
         setCheckoutBusy(false);
         setError(message);
+        notifications.showToast({ kind: "error", title: "Payment not completed", message });
       },
       { product: "question_archive_unlimited_access" },
     );
@@ -9508,6 +9529,7 @@ function BatchSalesControls({
 }
 
 function GlobalFilesAdminPanel() {
+  const notifications = useNotifications();
   const [data, setData] = useState<PaginatedGlobalFiles | null>(null);
   const [page, setPage] = useState(1);
   const [file, setFile] = useState<File | null>(null);
@@ -9515,9 +9537,9 @@ function GlobalFilesAdminPanel() {
   const [busy, setBusy] = useState(false);
   const load = () => api<PaginatedGlobalFiles>(`/admin/global-files?page=${page}&page_size=8`).then(setData).catch(() => undefined);
   useEffect(() => { void load(); }, [page]);
-  const submit = async (event: FormEvent) => { event.preventDefault(); if (!file) return; setBusy(true); try { const form = new FormData(); form.append("file", file); if (title.trim()) form.append("title", title.trim()); await api("/admin/global-files", { method: "POST", body: form }); setFile(null); setTitle(""); await load(); } finally { setBusy(false); } };
-  const remove = async (id: number) => { if (!window.confirm("Delete this homepage file?")) return; await api(`/admin/global-files/${id}`, { method: "DELETE" }); await load(); };
-  const toggle = async (item: PaginatedGlobalFiles["items"][number]) => { await api(`/admin/global-files/${item.id}`, { method: "PATCH", body: JSON.stringify({ is_published: !item.is_published }) }); await load(); };
+  const submit = async (event: FormEvent) => { event.preventDefault(); if (!file) return; const confirmed = await notifications.confirmAction({ title: "Upload homepage file", message: `Upload ${file.name} to learner homepage resources?`, confirmLabel: "Upload file", onConfirm: () => undefined }); if (!confirmed) return; setBusy(true); try { const form = new FormData(); form.append("file", file); if (title.trim()) form.append("title", title.trim()); await api("/admin/global-files", { method: "POST", body: form }); setFile(null); setTitle(""); await load(); notifications.showToast({ kind: "success", title: "Homepage file uploaded", message: `${file.name} is now available to learners.` }); } catch (cause) { notifications.showToast({ kind: "error", title: "Homepage upload failed", message: (cause as Error).message || "Unable to upload the file." }); } finally { setBusy(false); } };
+  const remove = async (id: number) => { const confirmed = await notifications.confirmAction({ title: "Delete homepage file", message: "Delete this homepage file? This action cannot be undone.", confirmLabel: "Delete file", destructive: true, onConfirm: () => undefined }); if (!confirmed) return; await api(`/admin/global-files/${id}`, { method: "DELETE" }); await load(); };
+  const toggle = async (item: PaginatedGlobalFiles["items"][number]) => { const nextState = !item.is_published; const confirmed = await notifications.confirmAction({ title: nextState ? "Publish homepage file" : "Hide homepage file", message: `${nextState ? "Publish" : "Hide"} “${item.title}” for learners?`, confirmLabel: nextState ? "Publish" : "Hide", onConfirm: () => undefined }); if (!confirmed) return; try { await api(`/admin/global-files/${item.id}`, { method: "PATCH", body: JSON.stringify({ is_published: nextState }) }); await load(); notifications.showToast({ kind: "success", title: nextState ? "File published" : "File hidden", message: `${item.title} was updated successfully.` }); } catch (cause) { notifications.showToast({ kind: "error", title: "File status update failed", message: (cause as Error).message || "Unable to update the file." }); } };
   return <section className="panel global-files-admin-panel"><div className="panel-header-row"><div><span className="eyebrow">HOMEPAGE FILES</span><h3>Global learner resources</h3><small className="muted-copy">Visible to every signed-in learner, independent of courses.</small></div></div><form className="upload-inline-form global-files-upload-form" onSubmit={submit}><label>Title<input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Optional display title" /></label><label>File<input type="file" onChange={(event) => setFile(event.target.files?.[0] || null)} required /></label><button className="button button-dark" type="submit" disabled={!file || busy}><Upload size={14} /> {busy ? "Uploading…" : "Upload"}</button></form>{data && data.items.length > 0 && <div className="global-files-admin-list">{data.items.map((item) => <div className="global-files-admin-row" key={item.id}><div><strong>{item.title}</strong><small>{item.original_filename}</small></div><span className={item.is_published ? "status-chip status-completed" : "status-chip"}>{item.is_published ? "Published" : "Hidden"}</span><button className="button button-small" type="button" onClick={() => void toggle(item)}>{item.is_published ? "Hide" : "Publish"}</button><button className="button button-small button-danger" type="button" onClick={() => void remove(item.id)}><Trash2 size={13} /> Delete</button></div>)}</div>}{data && data.total_pages > 1 && <div className="pagination-row"><button className="button button-small" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}><ChevronLeft size={14} /> Previous</button><span>Page {page} of {data.total_pages}</span><button className="button button-small" disabled={page >= data.total_pages} onClick={() => setPage((value) => value + 1)}>Next <ChevronRight size={14} /></button></div>}</section>;
 }
 
@@ -10112,6 +10134,8 @@ function Admin({ user }: { user: User | null }) {
     }
   };
   const togglePublish = async (course: Course) => {
+    const confirmed = await notifications.confirmAction({ title: course.is_published ? "Hide course" : "Publish course", message: `${course.is_published ? "Hide" : "Publish"} “${course.title}” for learners?`, confirmLabel: course.is_published ? "Hide course" : "Publish course", onConfirm: () => undefined });
+    if (!confirmed) return;
     try {
       await api(`/courses/admin/${course.id}/publish`, { method: "POST" });
       await refresh();
@@ -10131,6 +10155,8 @@ function Admin({ user }: { user: User | null }) {
   };
 
   const togglePinCourse = async (course: Course) => {
+    const confirmed = await notifications.confirmAction({ title: course.is_pinned ? "Unpin course" : "Pin course", message: `${course.is_pinned ? "Remove" : "Show"} “${course.title}” ${course.is_pinned ? "from" : "on"} the learner home page?`, confirmLabel: course.is_pinned ? "Unpin course" : "Pin course", onConfirm: () => undefined });
+    if (!confirmed) return;
     try {
       await api(`/courses/${course.id}/pin`, { method: "PATCH" });
       await refresh();
@@ -10338,6 +10364,8 @@ function Admin({ user }: { user: User | null }) {
   const addMaterial = async (event: FormEvent) => {
     event.preventDefault();
     if (!selected || files.length === 0) return;
+    const confirmed = await notifications.confirmAction({ title: "Upload course material", message: `Upload ${files.length} selected file${files.length === 1 ? "" : "s"} to the course directory?`, confirmLabel: "Upload material", onConfirm: () => undefined });
+    if (!confirmed) return;
     try {
       let targetTopic = selectedTopic;
       let createdFallbackTopic = false;
@@ -10389,6 +10417,8 @@ function Admin({ user }: { user: User | null }) {
   ) => {
     const replacement = event.target.files?.[0];
     if (!replacement) return;
+    const confirmed = await notifications.confirmAction({ title: "Replace course file", message: `Replace the existing file with ${replacement.name}?`, confirmLabel: "Replace file", onConfirm: () => undefined });
+    if (!confirmed) return;
     const form = new FormData();
     form.append("file", replacement);
     try {
@@ -10402,7 +10432,7 @@ function Admin({ user }: { user: User | null }) {
     }
   };
   const renameResource = async (id: number, title: string) => {
-    const next = window.prompt("File title", title)?.trim();
+    const next = (await notifications.promptAction({ title: "Rename file", message: "Enter a new file title.", defaultValue: title, confirmLabel: "Rename" }))?.trim();
     if (!next || next === title) return;
     try {
       await api(`/courses/resources/${id}`, {
