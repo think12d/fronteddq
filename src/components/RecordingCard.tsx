@@ -425,9 +425,13 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
   };
 
   const lockDriveAccess = async () => {
-    const confirmed = window.confirm(
-      "Remove direct Google Drive sharing from files and folders in the recorded-videos folder? Inherited access from a parent folder or shared drive must be removed there.",
-    );
+    const confirmed = await notifications.confirmAction({
+      title: "Lock Google Drive sharing",
+      message: "Remove direct Google Drive sharing from files and folders in the recorded-videos folder? Inherited access from a parent folder or shared drive must be removed there.",
+      confirmLabel: "Lock sharing",
+      destructive: true,
+      onConfirm: () => undefined,
+    });
     if (!confirmed) return;
 
     setSecuringDriveAccess(true);
@@ -505,6 +509,8 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
       setError("Recordings must be no larger than 1 GB.");
       return;
     }
+    const confirmed = await notifications.confirmAction({ title: "Upload recording", message: `Upload ${file.name} to the recorded-video library?`, confirmLabel: "Upload recording", onConfirm: () => undefined });
+    if (!confirmed) return;
 
     setUploading(true);
     setError("");
@@ -547,6 +553,8 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
       setError("Thumbnails must be no larger than 5 MB.");
       return;
     }
+    const confirmed = await notifications.confirmAction({ title: "Upload thumbnail", message: `Use ${file.name} as the recording thumbnail?`, confirmLabel: "Upload thumbnail", onConfirm: () => undefined });
+    if (!confirmed) return;
 
     setThumbnailBusyId(recordId);
     setError("");
@@ -568,7 +576,14 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
   };
 
   const removeThumbnail = async (record: AdminRecordedVideo) => {
-    if (!window.confirm(`Remove the thumbnail for ${record.file_name}?`)) return;
+    const confirmed = await notifications.confirmAction({
+      title: "Remove thumbnail",
+      message: `Remove the thumbnail for ${record.file_name}?`,
+      confirmLabel: "Remove thumbnail",
+      destructive: true,
+      onConfirm: () => undefined,
+    });
+    if (!confirmed) return;
     setThumbnailBusyId(record.id);
     setError("");
     setNotice("");
@@ -587,7 +602,14 @@ export function AdminRecordedVideosPage({ user }: { user: User | null }) {
   };
 
   const deleteRecording = async (record: AdminRecordedVideo) => {
-    if (!window.confirm(`Delete “${record.file_name}” from the recorded-video database? This removes it from learner playback and cannot be undone.`)) return;
+    const confirmed = await notifications.confirmAction({
+      title: "Delete recording",
+      message: `Delete “${record.file_name}” from the recorded-video database? This removes it from learner playback and cannot be undone.`,
+      confirmLabel: "Delete recording",
+      destructive: true,
+      onConfirm: () => undefined,
+    });
+    if (!confirmed) return;
     setError("");
     setNotice("");
     try {
