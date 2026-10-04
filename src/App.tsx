@@ -9688,12 +9688,61 @@ function QuestionArchiveAdminPage({ user }: { user: User | null }) {
   const paperTotalPages = Math.max(1, Math.ceil(filteredPapers.length / paperPageSize));
   const safePaperPage = Math.min(paperPage, paperTotalPages);
   const paginatedPapers = filteredPapers.slice((safePaperPage - 1) * paperPageSize, safePaperPage * paperPageSize);
-  const reset = () => { setEditingId(null); setTitle(""); setDescription(""); setYear(""); setSubject(""); setContentText("{}"); setIsFree(false); setIsPublished(false); setFileKey((value) => value + 1); };
-  const edit = (paper: QuestionArchivePaper) => { setEditingId(paper.id); setTitle(paper.title); setDescription(paper.description || ""); setYear(paper.year ? String(paper.year) : ""); setSubject(paper.subject || ""); setContentText(JSON.stringify(paper.content || {}, null, 2)); setIsFree(paper.is_free); setIsPublished(paper.is_published); window.scrollTo({ top: 0, behavior: "smooth" }); };
-  const importFile = async (file: File | undefined) => { if (!file) return; try { const text = await file.text(); try { setContentText(JSON.stringify(JSON.parse(text), null, 2)); } catch { setContentText(JSON.stringify({ text }, null, 2)); } notifications.showToast({ kind: "info", title: "Paper file loaded", message: "Review the content and save the paper." }); } catch (cause) { notifications.showToast({ kind: "error", title: "File read failed", message: (cause as Error).message || "Unable to read that file." }); } };
-  const save = async (event: FormEvent) => { event.preventDefault(); let content: Record<string, unknown>; try { content = JSON.parse(contentText || "{}"); } catch { notifications.showToast({ kind: "error", title: "Invalid paper content", message: "Content must be valid JSON before saving." }); return; } const confirmed = await notifications.confirmAction({ title: editingId ? "Update question paper" : "Add question paper", message: editingId ? "Save changes to “" + title + "”?" : "Add “" + title + "” to the Question Archive?", confirmLabel: editingId ? "Save changes" : "Add paper", onConfirm: () => undefined }); if (!confirmed) return; setBusy(true); try { const payload = { title: title.trim(), description: description.trim(), year: year ? Number(year) : null, subject: subject.trim(), content, is_free: isFree, is_published: isPublished }; if (editingId) await api("/question-archive/admin/" + editingId, { method: "PATCH", body: JSON.stringify(payload) }); else await api("/question-archive/admin", { method: "POST", body: JSON.stringify(payload) }); await load(); reset(); notifications.showToast({ kind: "success", title: editingId ? "Question paper updated" : "Question paper added", message: "The Question Archive was updated successfully." }); } catch (cause) { notifications.showToast({ kind: "error", title: "Question paper save failed", message: (cause as Error).message || "Unable to save the paper." }); } finally { setBusy(false); } };
+
+  // CHANGED: also clears the selected file
+  const reset = () => { setEditingId(null); setTitle(""); setDescription(""); setYear(""); setSubject(""); setContentText("{}"); setIsFree(false); setIsPublished(false); setSelectedFile(null); setFileKey((value) => value + 1); };
+
+  const edit = (paper: QuestionArchivePaper) => { setEditingId(paper.id); setTitle(paper.title); setDescription(paper.description || ""); setYear(paper.year ? String(paper.year) : ""); setSubject(paper.subject || ""); setContentText(JSON.stringify(paper.content || {}, null, 2)); setIsFree(paper.is_free); setIsPublished(paper.is_published); setSelectedFile(null); setFileKey((value) => value + 1); window.scrollTo({ top: 0, behavior: "smooth" }); };
+
+  // CHANGED: remembers the picked file; only reads text formats into the JSON box
+  const importFile = async (file: File | undefined) => {
+    if (!file) return;
+    setSelectedFile(file);
+    if (!/\.(json|txt|md|csv)$/i.test(file.name)) {
+      notifications.showToast({ kind: "info", title: "File attached", message: "The file will be uploaded when you save the paper." });
+      return;
+    }
+    try {
+      const text = await file.text();
+      try { setContentText(JSON.stringify(JSON.parse(text), null, 2)); } catch { setContentText(JSON.stringify({ text }, null, 2)); }
+      notifications.showToast({ kind: "info", title: "Paper file loaded", message: "Review the content and save the paper." });
+    } catch (cause) {
+      notifications.showToast({ kind: "error", title: "File read failed", message: (cause as Error).message || "Unable to read that file." });
+    }
+  };
+
+  // CHANGED: after the paper is saved, the file is sent to /question-archive/admin/{id}/file
+  const save = async (event: FormEvent) => {
+    event.preventDefault();
+    let content: Record<string, unknown>;
+    try { content = JSON.parse(contentText || "{}"); } catch { notifications.showToast({ kind: "error", title: "Invalid paper content", message: "Content must be valid JSON before saving." }); return; }
+    const confirmed = await notifications.confirmAction({ title: editingId ? "Update question paper" : "Add question paper", message: editingId ? "Save changes to “" + title + "”?" : "Add “" + title + "” to the Question Archive?", confirmLabel: editingId ? "Save changes" : "Add paper", onConfirm: () => undefined });
+    if (!confirmed) return;
+    setBusy(true);
+    try {
+      const payload = { title: title.trim(), description: description.trim(), year: year ? Number(year) : null, subject: subject.trim(), content, is_free: isFree, is_published: isPublished };
+      const saved = editingId
+        ? await api<QuestionArchivePaper>("/question-archive/admin/" + editingId, { method: "PATCH", body: JSON.stringify(payload) })
+        : await api<QuestionArchivePaper>("/question-archive/admin", { method: "POST", body: JSON.stringify(payload) });
+      const paperId = saved?.id ?? editingId;
+      if (selectedFile && paperId) {
+        const form = new FormData();
+        form.append("file", selectedFile);
+        await api("/question-archive/admin/" + paperId + "/file", { method: "POST", body: form });
+      }
+      await load();
+      reset();
+      notifications.showToast({ kind: "success", title: editingId ? "Question paper updated" : "Question paper added", message: "The Question Archive was updated successfully." });
+    } catch (cause) {
+      notifications.showToast({ kind: "error", title: "Question paper save failed", message: (cause as Error).message || "Unable to save the paper." });
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const remove = async (paper: QuestionArchivePaper) => { const confirmed = await notifications.confirmAction({ title: "Delete question paper", message: "Delete “" + paper.title + "”? Existing purchases may also be removed.", confirmLabel: "Delete paper", destructive: true, onConfirm: () => undefined }); if (!confirmed) return; try { await api("/question-archive/admin/" + paper.id, { method: "DELETE" }); await load(); if (editingId === paper.id) reset(); notifications.showToast({ kind: "success", title: "Question paper deleted", message: "The paper was removed." }); } catch (cause) { notifications.showToast({ kind: "error", title: "Question paper deletion failed", message: (cause as Error).message || "Unable to delete the paper." }); } };
-  return <main className="container page-section"><div className="section-heading"><div><span className="eyebrow">ADMIN · QUESTION ARCHIVE</span><h1>Question papers</h1><p>Add, review, publish, edit, or delete archive papers shown on the learner page.</p></div></div><section className="panel panel-paper" style={{ marginBottom: 24 }}><form onSubmit={save}><div className="section-heading compact"><h2>{editingId ? "Edit question paper" : "Add question paper"}</h2>{editingId && <button type="button" className="button button-outline button-small" onClick={reset}>Cancel edit</button>}</div><div className="admin-form-grid"><label>Title<input value={title} onChange={(event) => setTitle(event.target.value)} required /></label><label>Subject<input value={subject} onChange={(event) => setSubject(event.target.value)} /></label><label>Year<input type="number" min="1900" max="2100" value={year} onChange={(event) => setYear(event.target.value)} /></label><label>Paper file<input key={fileKey} type="file" accept=".pdf,.doc,.docx,.json,.txt,.md,.csv,.xls" onChange={(event) => void importFile(event.target.files?.[0])} /></label></div><label>Description<textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} /></label><label>Paper content (JSON)<textarea value={contentText} onChange={(event) => setContentText(event.target.value)} rows={8} spellCheck={false} /></label><div className="inline-builder"><label className="checkbox-field"><input type="checkbox" checked={isFree} onChange={(event) => setIsFree(event.target.checked)} /> Free paper</label><label className="checkbox-field"><input type="checkbox" checked={isPublished} onChange={(event) => setIsPublished(event.target.checked)} /> Publish to learners</label></div><button className="button button-dark" type="submit" disabled={busy}>{busy ? "Saving…" : editingId ? "Save changes" : "Add question paper"}</button></form></section><section className="panel panel-paper"><div className="section-heading compact"><h2>All existing papers</h2><button className="button button-outline button-small" type="button" onClick={() => void load()} disabled={loading}>Refresh</button></div>
+
+  return <main className="container page-section"><div className="section-heading"><div><span className="eyebrow">ADMIN · QUESTION ARCHIVE</span><h1>Question papers</h1><p>Add, review, publish, edit, or delete archive papers shown on the learner page.</p></div></div><section className="panel panel-paper" style={{ marginBottom: 24 }}><form onSubmit={save}><div className="section-heading compact"><h2>{editingId ? "Edit question paper" : "Add question paper"}</h2>{editingId && <button type="button" className="button button-outline button-small" onClick={reset}>Cancel edit</button>}</div><div className="admin-form-grid"><label>Title<input value={title} onChange={(event) => setTitle(event.target.value)} required /></label><label>Subject<input value={subject} onChange={(event) => setSubject(event.target.value)} /></label><label>Year<input type="number" min="1900" max="2100" value={year} onChange={(event) => setYear(event.target.value)} /></label><label>Paper file<input key={fileKey} type="file" accept=".pdf,.doc,.docx,.json,.txt,.md,.csv,.xls" onChange={(event) => void importFile(event.target.files?.[0])} />{selectedFile && <small className="muted">Selected: {selectedFile.name} · will upload on save</small>}</label></div><label>Description<textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} /></label><label>Paper content (JSON)<textarea value={contentText} onChange={(event) => setContentText(event.target.value)} rows={8} spellCheck={false} /></label><div className="inline-builder"><label className="checkbox-field"><input type="checkbox" checked={isFree} onChange={(event) => setIsFree(event.target.checked)} /> Free paper</label><label className="checkbox-field"><input type="checkbox" checked={isPublished} onChange={(event) => setIsPublished(event.target.checked)} /> Publish to learners</label></div><button className="button button-dark" type="submit" disabled={busy}>{busy ? "Saving…" : editingId ? "Save changes" : "Add question paper"}</button></form></section><section className="panel panel-paper"><div className="section-heading compact"><h2>All existing papers</h2><button className="button button-outline button-small" type="button" onClick={() => void load()} disabled={loading}>Refresh</button></div>
     <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", marginBottom: 16 }}>
       <div className="admin-toolbar-search" style={{ flex: 1, minWidth: 220 }}>
         <Search size={16} />
