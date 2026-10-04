@@ -11466,3 +11466,288 @@ textarea { min-height: 108px; }
     font-size: 11px !important;
   }
 }
+ /* =========================================================
+    LIVE CLASS TOOLBAR — STABLE RESPONSIVE VERSION
+    Prevents search/filter overlap and icon movement
+    ========================================================= */
+
+.material-library .live-admin-dashboard > div[style*="display: flex"] {
+  display: flex !important;
+  align-items: stretch !important;
+  flex-wrap: nowrap !important;
+  gap: 10px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+
+
+/* =========================================================
+   SEARCH CONTAINER
+   ========================================================= */
+
+.material-library .admin-toolbar-search {
+  position: relative !important;
+
+  display: flex !important;
+  align-items: center !important;
+
+  flex: 1 1 auto !important;
+  width: auto !important;
+  min-width: 0 !important;
+
+  height: 46px !important;
+  box-sizing: border-box !important;
+
+  padding: 0 !important;
+  margin: 0 !important;
+
+  background: #ffffff !important;
+
+  border: 1px solid #dfe5ec !important;
+  border-radius: 11px !important;
+
+  overflow: hidden !important;
+
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.035) !important;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease !important;
+}
+
+
+/* =========================================================
+   SEARCH ICON — FIXED POSITION
+   ========================================================= */
+
+.material-library .admin-toolbar-search > svg {
+  display: block !important;
+
+  width: 16px !important;
+  height: 16px !important;
+  min-width: 16px !important;
+  max-width: 16px !important;
+
+  margin: 0 9px 0 14px !important;
+  padding: 0 !important;
+
+  flex: 0 0 16px !important;
+
+  color: #94a3b8 !important;
+  stroke: currentColor !important;
+  stroke-width: 2 !important;
+
+  transform: none !important;
+
+  pointer-events: none !important;
+}
+
+
+/* =========================================================
+   INPUT — NEVER PUSHES ICON
+   ========================================================= */
+
+.material-library .admin-toolbar-search input {
+  display: block !important;
+
+  flex: 1 1 auto !important;
+
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+
+  height: 44px !important;
+
+  margin: 0 !important;
+  padding: 0 12px 0 0 !important;
+
+  border: 0 !important;
+  outline: 0 !important;
+
+  background: transparent !important;
+
+  color: #1e293b !important;
+
+  font-family: inherit !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+
+  line-height: normal !important;
+
+  box-shadow: none !important;
+
+  transform: none !important;
+}
+
+
+/* Placeholder */
+
+.material-library .admin-toolbar-search input::placeholder {
+  color: #98a2b3 !important;
+  opacity: 1 !important;
+}
+
+
+/* =========================================================
+   SEARCH FOCUS
+   ========================================================= */
+
+.material-library .admin-toolbar-search:focus-within {
+  border-color: #93c5fd !important;
+
+  box-shadow:
+    0 0 0 3px rgba(37, 99, 235, 0.07) !important;
+}
+
+.material-library .admin-toolbar-search:focus-within > svg {
+  color: #2563eb !important;
+  transform: none !important;
+}
+
+
+/* =========================================================
+   FILTER SELECTS
+   ========================================================= */
+
+.material-library .live-admin-dashboard > div[style*="display: flex"] > select {
+  flex: 0 1 180px !important;
+
+  width: auto !important;
+  min-width: 145px !important;
+  max-width: 210px !important;
+
+  height: 46px !important;
+  box-sizing: border-box !important;
+
+  margin: 0 !important;
+
+  padding: 0 32px 0 12px !important;
+
+  border: 1px solid #dfe5ec !important;
+  border-radius: 11px !important;
+
+  background: #ffffff !important;
+
+  color: #344054 !important;
+
+  font-family: inherit !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+
+  white-space: nowrap !important;
+  text-overflow: ellipsis !important;
+
+  outline: none !important;
+
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.035) !important;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease !important;
+}
+
+.material-library .live-admin-dashboard > div[style*="display: flex"] > select:hover {
+  border-color: #cbd5e1 !important;
+}
+
+.material-library .live-admin-dashboard > div[style*="display: flex"] > select:focus {
+  border-color: #93c5fd !important;
+
+  box-shadow:
+    0 0 0 3px rgba(37, 99, 235, 0.07) !important;
+}
+
+
+/* =========================================================
+   LARGE LAPTOP / DESKTOP
+   ========================================================= */
+
+@media (min-width: 1200px) {
+
+  .material-library .admin-toolbar-search {
+    min-width: 280px !important;
+  }
+
+  .material-library .live-admin-dashboard > div[style*="display: flex"] > select {
+    min-width: 170px !important;
+  }
+}
+
+
+/* =========================================================
+   TABLET
+   ========================================================= */
+
+@media (max-width: 1100px) {
+
+  .material-library .live-admin-dashboard > div[style*="display: flex"] {
+    flex-wrap: wrap !important;
+  }
+
+  .material-library .admin-toolbar-search {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+  }
+
+  .material-library .live-admin-dashboard > div[style*="display: flex"] > select {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+}
+
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 767px) {
+
+  .material-library .live-admin-dashboard > div[style*="display: flex"] {
+    display: grid !important;
+
+    grid-template-columns: 1fr 1fr !important;
+
+    gap: 8px !important;
+
+    width: 100% !important;
+  }
+
+  .material-library .admin-toolbar-search {
+    grid-column: 1 / -1 !important;
+
+    width: 100% !important;
+    min-width: 0 !important;
+
+    height: 45px !important;
+  }
+
+  .material-library .live-admin-dashboard > div[style*="display: flex"] > select {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+
+    height: 44px !important;
+  }
+}
+
+
+/* =========================================================
+   SMALL MOBILE
+   ========================================================= */
+
+@media (max-width: 430px) {
+
+  .material-library .live-admin-dashboard > div[style*="display: flex"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  .material-library .admin-toolbar-search {
+    grid-column: auto !important;
+  }
+
+  .material-library .live-admin-dashboard > div[style*="display: flex"] > select {
+    width: 100% !important;
+  }
+}
