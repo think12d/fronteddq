@@ -116,6 +116,93 @@ function autoScrollDuringDrag(clientY: number): void {
   const distance = clientY < edge ? clientY - edge : clientY > window.innerHeight - edge ? clientY - (window.innerHeight - edge) : 0;
   if (distance) window.scrollBy({ top: Math.sign(distance) * Math.min(28, Math.max(8, Math.abs(distance) / 3)), behavior: "auto" });
 }
+// "User1", "User 1", "user_1", "USER-1" all become "user1"
+function normalizeSearchText(value: unknown): string {
+  return String(value ?? "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, "");
+}
+
+function smartMatch(query: string, ...fields: unknown[]): boolean {
+  const raw = query.trim();
+  if (!raw) return true;
+  const compactQuery = normalizeSearchText(raw);
+  if (!compactQuery) return true;
+  const haystack = normalizeSearchText(
+    fields.filter((f) => f !== null && f !== undefined).join(" "),
+  );
+  if (haystack.includes(compactQuery)) return true;
+  const tokens = raw.toLowerCase().split(/\s+/).map(normalizeSearchText).filter(Boolean);
+  return tokens.length > 1 && tokens.every((t) => haystack.includes(t));
+}
+
+function PaginationControls({
+  page,
+  totalPages,
+  totalItems,
+  pageSize,
+  onPageChange,
+  label = "Pagination",
+}: {
+  page: number;
+  totalPages: number;
+  totalItems: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+  label?: string;
+}) {
+  if (totalItems === 0) return null;
+  const start = (page - 1) * pageSize + 1;
+  const end = Math.min(page * pageSize, totalItems);
+  const numbers: (number | "gap-left" | "gap-right")[] = [];
+  for (let n = 1; n <= totalPages; n += 1) {
+    if (n === 1 || n === totalPages || Math.abs(n - page) <= 1) numbers.push(n);
+    else if (n === 2) numbers.push("gap-left");
+    else if (n === totalPages - 1) numbers.push("gap-right");
+  }
+  return (
+    <div className="pagination-row" aria-label={label}>
+      <button
+        type="button"
+        className="button button-small button-outline"
+        disabled={page <= 1}
+        onClick={() => onPageChange(page - 1)}
+      >
+        <ChevronLeft size={14} /> Previous
+      </button>
+      <div className="pagination-pages" aria-live="polite">
+        {numbers.map((item) =>
+          typeof item === "number" ? (
+            <button
+              key={item}
+              type="button"
+              className={`button button-small ${item === page ? "button-dark" : "button-outline"}`}
+              onClick={() => onPageChange(item)}
+              aria-current={item === page ? "page" : undefined}
+            >
+              {item}
+            </button>
+          ) : (
+            <span key={item}>…</span>
+          ),
+        )}
+      </div>
+      <button
+        type="button"
+        className="button button-small button-outline"
+        disabled={page >= totalPages}
+        onClick={() => onPageChange(page + 1)}
+      >
+        Next <ChevronRight size={14} />
+      </button>
+      <span className="resource-page-status">
+        Showing {start}–{end} of {totalItems}
+      </span>
+    </div>
+  );
+}
 type QuestionBankOptions = {
   available: boolean;
   years: number[];
@@ -1868,18 +1955,15 @@ function AdminUserAccessPage({ user }: { user: User | null }) {
     const courseAccess = getCourseAccess(row);
 
     /*
-     * SEARCH
+     * SEARCH (case, space and punctuation insensitive)
      */
-    const term = query.trim().toLowerCase();
-
-    const matchesSearch =
-      !term ||
-      String(row.full_name || "")
-        .toLowerCase()
-        .includes(term) ||
-      String(row.email || "")
-        .toLowerCase()
-        .includes(term);
+    const matchesSearch = smartMatch(
+      query,
+      row.full_name,
+      row.email,
+      row.id,
+      courseAccess.map((course: any) => course.course_title).join(" "),
+    );
 
     if (!matchesSearch) {
       return false;
@@ -7682,6 +7766,8 @@ function QuestionBankPage({ user }: { user: User | null }) {
   const [typeFilter, setTypeFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [expandedYears, setExpandedYears] = useState<Record<string, boolean>>({});
+  const [archivePage, setArchivePage] = useState(1);
+  const archivePageSize = 10;
   const load = () => {
     setLoading(true);
     setError("");
@@ -7759,7 +7845,6 @@ function QuestionBankPage({ user }: { user: User | null }) {
 
   const visibleYears = useMemo(() => {
     if (!library) return [];
-    const normalizedQuery = searchQuery.trim().toLowerCase();
 
     return library.years
       .map((group) => {
@@ -7767,9 +7852,14 @@ function QuestionBankPage({ user }: { user: User | null }) {
         const filteredFiles = group.files.filter((file) => {
           const fileType = getLibraryFileType(file.name);
           const category = getLibraryCategory(file);
-          const matchesSearch =
-            !normalizedQuery ||
-            `${file.name} ${file.relative_path}`.toLowerCase().includes(normalizedQuery);
+          const matchesSearch = smartMatch(
+            searchQuery,
+            file.name,
+            file.relative_path,
+            fileType,
+            category,
+            group.year === "Other" ? "Other" : `UGC NET ${group.year}`,
+          );
           const matchesYear =
             yearFilter === "all" ||
             (yearFilter === "Other" && group.year === "Other") ||
@@ -7788,6 +7878,33 @@ function QuestionBankPage({ user }: { user: User | null }) {
       })
       .filter((group) => group.filteredFiles.length > 0);
   }, [library, searchQuery, yearFilter, typeFilter, categoryFilter]);
+
+  const totalVisibleFiles = visibleYears.reduce(
+    (count, group) => count + group.filteredFiles.length,
+    0,
+  );
+  const archiveTotalPages = Math.max(1, Math.ceil(totalVisibleFiles / archivePageSize));
+  const safeArchivePage = Math.min(archivePage, archiveTotalPages);
+
+  const pagedYears = useMemo(() => {
+    const start = (safeArchivePage - 1) * archivePageSize;
+    const end = start + archivePageSize;
+    let cursor = 0;
+    const result: typeof visibleYears = [];
+    for (const group of visibleYears) {
+      const from = Math.max(0, start - cursor);
+      const to = Math.min(group.filteredFiles.length, end - cursor);
+      if (to > from) {
+        result.push({ ...group, filteredFiles: group.filteredFiles.slice(from, to) });
+      }
+      cursor += group.filteredFiles.length;
+    }
+    return result;
+  }, [visibleYears, safeArchivePage]);
+
+  useEffect(() => {
+    setArchivePage(1);
+  }, [searchQuery, yearFilter, typeFilter, categoryFilter]);
 
   useEffect(() => {
     if (!user) {
@@ -8006,7 +8123,7 @@ function QuestionBankPage({ user }: { user: User | null }) {
             </div>
           ) : (
             <div className="archive-year-list">
-              {visibleYears.map((group) => {
+              {pagedYears.map((group) => {
                 const isExpanded = expandedYears[group.yearKey] ?? true;
                 return (
                   <section className="archive-year" key={group.yearKey}>
@@ -8178,12 +8295,19 @@ function QuestionBankPage({ user }: { user: User | null }) {
               })}
             </div>
           )}
+          <PaginationControls
+            page={safeArchivePage}
+            totalPages={archiveTotalPages}
+            totalItems={totalVisibleFiles}
+            pageSize={archivePageSize}
+            onPageChange={setArchivePage}
+            label="Question archive pagination"
+          />
         </>
       )}
     </div>
   );
 }
-
 function LearnerRecordedThumbnail({ path }: { path: string }) {
   const [url, setUrl] = useState("");
   useEffect(() => {
@@ -9533,22 +9657,63 @@ function BatchSalesControls({
     </section>
   );
 }
-
 function QuestionArchiveAdminPage({ user }: { user: User | null }) {
   const notifications = useNotifications();
   const [papers, setPapers] = useState<QuestionArchivePaper[]>([]); const [driveFiles, setDriveFiles] = useState<QuestionLibraryFile[]>([]); const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [title, setTitle] = useState(""); const [description, setDescription] = useState(""); const [year, setYear] = useState(""); const [subject, setSubject] = useState(""); const [contentText, setContentText] = useState("{}"); const [isFree, setIsFree] = useState(false); const [isPublished, setIsPublished] = useState(false); const [busy, setBusy] = useState(false); const [loading, setLoading] = useState(true); const [fileKey, setFileKey] = useState(0);
+  const [paperSearch, setPaperSearch] = useState("");
+  const [paperStatusFilter, setPaperStatusFilter] = useState<"all" | "published" | "draft">("all");
+  const [paperPriceFilter, setPaperPriceFilter] = useState<"all" | "free" | "paid">("all");
+  const [paperYearFilter, setPaperYearFilter] = useState("all");
+  const [paperPage, setPaperPage] = useState(1);
+  const paperPageSize = 8;
   const load = async () => { setLoading(true); try { const [paperResult, driveResult] = await Promise.all([api<QuestionArchivePaper[]>("/question-archive/admin"), api<{ files: QuestionLibraryFile[] }>("/library/admin/question-bank")]); const drivePapers = (driveResult.files || []).map((file, index) => ({ id: -(index + 1), title: file.name, description: "Existing Google Drive question paper", year: file.year, subject: "Question Archive", is_free: false, price_paise: 0, currency: "INR", is_published: true, owned: true, content: null })); setDriveFiles(driveResult.files || []); setPapers([...paperResult, ...drivePapers]); } catch (cause) { notifications.showToast({ kind: "error", title: "Archive loading failed", message: (cause as Error).message || "Unable to load question papers." }); } finally { setLoading(false); } };
   useEffect(() => { if (user) void load(); }, [user]);
+  useEffect(() => { setPaperPage(1); }, [paperSearch, paperStatusFilter, paperPriceFilter, paperYearFilter]);
+  const paperYearOptions = useMemo(
+    () => Array.from(new Set(papers.map((p) => p.year).filter((v) => v !== null && v !== undefined))).sort((a, b) => Number(b) - Number(a)),
+    [papers],
+  );
+  const filteredPapers = useMemo(
+    () => papers.filter((paper) => {
+      const matchesText = smartMatch(paperSearch, paper.title, paper.subject, paper.description, paper.year, paper.is_free ? "free" : "paid", paper.is_published ? "published" : "draft");
+      const matchesStatus = paperStatusFilter === "all" || (paperStatusFilter === "published" ? paper.is_published : !paper.is_published);
+      const matchesPrice = paperPriceFilter === "all" || (paperPriceFilter === "free" ? paper.is_free : !paper.is_free);
+      const matchesYear = paperYearFilter === "all" || String(paper.year ?? "") === paperYearFilter;
+      return matchesText && matchesStatus && matchesPrice && matchesYear;
+    }),
+    [papers, paperSearch, paperStatusFilter, paperPriceFilter, paperYearFilter],
+  );
+  const paperTotalPages = Math.max(1, Math.ceil(filteredPapers.length / paperPageSize));
+  const safePaperPage = Math.min(paperPage, paperTotalPages);
+  const paginatedPapers = filteredPapers.slice((safePaperPage - 1) * paperPageSize, safePaperPage * paperPageSize);
   const reset = () => { setEditingId(null); setTitle(""); setDescription(""); setYear(""); setSubject(""); setContentText("{}"); setIsFree(false); setIsPublished(false); setFileKey((value) => value + 1); };
   const edit = (paper: QuestionArchivePaper) => { setEditingId(paper.id); setTitle(paper.title); setDescription(paper.description || ""); setYear(paper.year ? String(paper.year) : ""); setSubject(paper.subject || ""); setContentText(JSON.stringify(paper.content || {}, null, 2)); setIsFree(paper.is_free); setIsPublished(paper.is_published); window.scrollTo({ top: 0, behavior: "smooth" }); };
   const importFile = async (file: File | undefined) => { if (!file) return; try { const text = await file.text(); try { setContentText(JSON.stringify(JSON.parse(text), null, 2)); } catch { setContentText(JSON.stringify({ text }, null, 2)); } notifications.showToast({ kind: "info", title: "Paper file loaded", message: "Review the content and save the paper." }); } catch (cause) { notifications.showToast({ kind: "error", title: "File read failed", message: (cause as Error).message || "Unable to read that file." }); } };
   const save = async (event: FormEvent) => { event.preventDefault(); let content: Record<string, unknown>; try { content = JSON.parse(contentText || "{}"); } catch { notifications.showToast({ kind: "error", title: "Invalid paper content", message: "Content must be valid JSON before saving." }); return; } const confirmed = await notifications.confirmAction({ title: editingId ? "Update question paper" : "Add question paper", message: editingId ? "Save changes to “" + title + "”?" : "Add “" + title + "” to the Question Archive?", confirmLabel: editingId ? "Save changes" : "Add paper", onConfirm: () => undefined }); if (!confirmed) return; setBusy(true); try { const payload = { title: title.trim(), description: description.trim(), year: year ? Number(year) : null, subject: subject.trim(), content, is_free: isFree, is_published: isPublished }; if (editingId) await api("/question-archive/admin/" + editingId, { method: "PATCH", body: JSON.stringify(payload) }); else await api("/question-archive/admin", { method: "POST", body: JSON.stringify(payload) }); await load(); reset(); notifications.showToast({ kind: "success", title: editingId ? "Question paper updated" : "Question paper added", message: "The Question Archive was updated successfully." }); } catch (cause) { notifications.showToast({ kind: "error", title: "Question paper save failed", message: (cause as Error).message || "Unable to save the paper." }); } finally { setBusy(false); } };
   const remove = async (paper: QuestionArchivePaper) => { const confirmed = await notifications.confirmAction({ title: "Delete question paper", message: "Delete “" + paper.title + "”? Existing purchases may also be removed.", confirmLabel: "Delete paper", destructive: true, onConfirm: () => undefined }); if (!confirmed) return; try { await api("/question-archive/admin/" + paper.id, { method: "DELETE" }); await load(); if (editingId === paper.id) reset(); notifications.showToast({ kind: "success", title: "Question paper deleted", message: "The paper was removed." }); } catch (cause) { notifications.showToast({ kind: "error", title: "Question paper deletion failed", message: (cause as Error).message || "Unable to delete the paper." }); } };
-  return <main className="container page-section"><div className="section-heading"><div><span className="eyebrow">ADMIN · QUESTION ARCHIVE</span><h1>Question papers</h1><p>Add, review, publish, edit, or delete archive papers shown on the learner page.</p></div></div><section className="panel panel-paper" style={{ marginBottom: 24 }}><form onSubmit={save}><div className="section-heading compact"><h2>{editingId ? "Edit question paper" : "Add question paper"}</h2>{editingId && <button type="button" className="button button-outline button-small" onClick={reset}>Cancel edit</button>}</div><div className="admin-form-grid"><label>Title<input value={title} onChange={(event) => setTitle(event.target.value)} required /></label><label>Subject<input value={subject} onChange={(event) => setSubject(event.target.value)} /></label><label>Year<input type="number" min="1900" max="2100" value={year} onChange={(event) => setYear(event.target.value)} /></label><label>Paper file<input key={fileKey} type="file" accept=".json,.txt,.md" onChange={(event) => void importFile(event.target.files?.[0])} /></label></div><label>Description<textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} /></label><label>Paper content (JSON)<textarea value={contentText} onChange={(event) => setContentText(event.target.value)} rows={8} spellCheck={false} /></label><div className="inline-builder"><label className="checkbox-field"><input type="checkbox" checked={isFree} onChange={(event) => setIsFree(event.target.checked)} /> Free paper</label><label className="checkbox-field"><input type="checkbox" checked={isPublished} onChange={(event) => setIsPublished(event.target.checked)} /> Publish to learners</label></div><button className="button button-dark" type="submit" disabled={busy}>{busy ? "Saving…" : editingId ? "Save changes" : "Add question paper"}</button></form></section><section className="panel panel-paper"><div className="section-heading compact"><h2>All existing papers</h2><button className="button button-outline button-small" type="button" onClick={() => void load()} disabled={loading}>Refresh</button></div>{loading ? <div className="empty-state">Loading papers…</div> : !papers.length ? <div className="empty-state">No question papers have been added.</div> : <div className="global-files-admin-list">{papers.map((paper) => <div className="global-files-admin-row" key={paper.id}><div><strong>{paper.title}</strong><small>{paper.subject || "No subject"}{paper.year ? " · " + paper.year : ""} · {paper.is_free ? "Free" : "Paid"}</small></div><span className={paper.is_published ? "status-chip status-completed" : "status-chip"}>{paper.is_published ? "Published" : "Draft"}</span><button className="button button-small" type="button" onClick={() => edit(paper)}>Edit</button><button className="button button-small button-danger" type="button" onClick={() => void remove(paper)}>Delete</button></div>)}</div>}</section></main>;
+  return <main className="container page-section"><div className="section-heading"><div><span className="eyebrow">ADMIN · QUESTION ARCHIVE</span><h1>Question papers</h1><p>Add, review, publish, edit, or delete archive papers shown on the learner page.</p></div></div><section className="panel panel-paper" style={{ marginBottom: 24 }}><form onSubmit={save}><div className="section-heading compact"><h2>{editingId ? "Edit question paper" : "Add question paper"}</h2>{editingId && <button type="button" className="button button-outline button-small" onClick={reset}>Cancel edit</button>}</div><div className="admin-form-grid"><label>Title<input value={title} onChange={(event) => setTitle(event.target.value)} required /></label><label>Subject<input value={subject} onChange={(event) => setSubject(event.target.value)} /></label><label>Year<input type="number" min="1900" max="2100" value={year} onChange={(event) => setYear(event.target.value)} /></label><label>Paper file<input key={fileKey} type="file" accept=".json,.txt,.md" onChange={(event) => void importFile(event.target.files?.[0])} /></label></div><label>Description<textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} /></label><label>Paper content (JSON)<textarea value={contentText} onChange={(event) => setContentText(event.target.value)} rows={8} spellCheck={false} /></label><div className="inline-builder"><label className="checkbox-field"><input type="checkbox" checked={isFree} onChange={(event) => setIsFree(event.target.checked)} /> Free paper</label><label className="checkbox-field"><input type="checkbox" checked={isPublished} onChange={(event) => setIsPublished(event.target.checked)} /> Publish to learners</label></div><button className="button button-dark" type="submit" disabled={busy}>{busy ? "Saving…" : editingId ? "Save changes" : "Add question paper"}</button></form></section><section className="panel panel-paper"><div className="section-heading compact"><h2>All existing papers</h2><button className="button button-outline button-small" type="button" onClick={() => void load()} disabled={loading}>Refresh</button></div>
+    <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", marginBottom: 16 }}>
+      <div className="admin-toolbar-search" style={{ flex: 1, minWidth: 220 }}>
+        <Search size={16} />
+        <input aria-label="Search papers" value={paperSearch} onChange={(event) => setPaperSearch(event.target.value)} placeholder="Search title, subject, year, free/paid…" />
+      </div>
+      <select aria-label="Status filter" value={paperStatusFilter} onChange={(event) => setPaperStatusFilter(event.target.value as typeof paperStatusFilter)}>
+        <option value="all">All statuses</option><option value="published">Published</option><option value="draft">Draft</option>
+      </select>
+      <select aria-label="Price filter" value={paperPriceFilter} onChange={(event) => setPaperPriceFilter(event.target.value as typeof paperPriceFilter)}>
+        <option value="all">Free &amp; paid</option><option value="free">Free</option><option value="paid">Paid</option>
+      </select>
+      <select aria-label="Year filter" value={paperYearFilter} onChange={(event) => setPaperYearFilter(event.target.value)}>
+        <option value="all">All years</option>
+        {paperYearOptions.map((y) => <option key={String(y)} value={String(y)}>{y}</option>)}
+      </select>
+    </div>
+    {loading ? <div className="empty-state">Loading papers…</div> : !filteredPapers.length ? <div className="empty-state">{papers.length ? "No papers match your search or filters." : "No question papers have been added."}</div> : <div className="global-files-admin-list">{paginatedPapers.map((paper) => <div className="global-files-admin-row" key={paper.id}><div><strong>{paper.title}</strong><small>{paper.subject || "No subject"}{paper.year ? " · " + paper.year : ""} · {paper.is_free ? "Free" : "Paid"}</small></div><span className={paper.is_published ? "status-chip status-completed" : "status-chip"}>{paper.is_published ? "Published" : "Draft"}</span><button className="button button-small" type="button" onClick={() => edit(paper)}>Edit</button><button className="button button-small button-danger" type="button" onClick={() => void remove(paper)}>Delete</button></div>)}</div>}
+    <PaginationControls page={safePaperPage} totalPages={paperTotalPages} totalItems={filteredPapers.length} pageSize={paperPageSize} onPageChange={setPaperPage} label="Question paper pagination" />
+  </section></main>;
 }
-
 function GlobalFilesAdminPanel() {
   const notifications = useNotifications();
   const [data, setData] = useState<PaginatedGlobalFiles | null>(null);
@@ -12009,10 +12174,16 @@ function AdminPayments({ user }: { user: User | null }) {
   const filtered = payments.filter((payment) => {
     const matchesStatus =
       statusFilter === "all" || payment.status === statusFilter;
-    const haystack =
-      `${payment.receipt_id} ${payment.user_name} ${payment.user_email} ${payment.product}`.toLowerCase();
-    const matchesQuery =
-      !query.trim() || haystack.includes(query.trim().toLowerCase());
+    const matchesQuery = smartMatch(
+      query,
+      payment.receipt_id,
+      payment.user_name,
+      payment.user_email,
+      payment.product,
+      payment.order_id,
+      payment.payment_id,
+      payment.status,
+    );
     return matchesStatus && matchesQuery;
   });
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
@@ -12185,7 +12356,6 @@ function AdminPayments({ user }: { user: User | null }) {
     </div>
   );
 }
-
 type MeetClassSummary = {
   id: number;
   course_id: number;
@@ -12445,6 +12615,22 @@ function UnifiedLivePage({ user }: { user: User | null }) {
     return () => window.clearInterval(timer);
   }, [user]);
 
+  const [liveSearch, setLiveSearch] = useState("");
+  const [liveStatus, setLiveStatus] = useState("all");
+  const [livePage, setLivePage] = useState(1);
+  const livePageSize = 6;
+  useEffect(() => { setLivePage(1); }, [liveSearch, liveStatus]);
+  const filteredLive = useMemo(
+    () => classes.filter((item) =>
+      (liveStatus === "all" || item.status === liveStatus) &&
+      smartMatch(liveSearch, item.title, item.teacher_name, item.status, item.scheduled_at ? new Date(item.scheduled_at).toLocaleString("en-IN") : ""),
+    ),
+    [classes, liveSearch, liveStatus],
+  );
+  const liveTotalPages = Math.max(1, Math.ceil(filteredLive.length / livePageSize));
+  const safeLivePage = Math.min(livePage, liveTotalPages);
+  const pagedLive = filteredLive.slice((safeLivePage - 1) * livePageSize, safeLivePage * livePageSize);
+
   const join = async (id: number) => {
     try {
       const result = await api<MeetJoin>(`/live-classes/${id}/join`, {
@@ -12510,9 +12696,18 @@ function UnifiedLivePage({ user }: { user: User | null }) {
             </div>
             <span className="muted">Direct Meet access</span>
           </div>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+            <div className="admin-toolbar-search" style={{ flex: 1, minWidth: 220 }}>
+              <Search size={16} />
+              <input aria-label="Search live classes" value={liveSearch} onChange={(event) => setLiveSearch(event.target.value)} placeholder="Search class, teacher, status…" />
+            </div>
+            <select aria-label="Status filter" value={liveStatus} onChange={(event) => setLiveStatus(event.target.value)}>
+              <option value="all">All statuses</option><option value="SCHEDULED">Scheduled</option><option value="STARTING">Starting</option><option value="LIVE">Live</option><option value="COMPLETED">Completed</option>
+            </select>
+          </div>
           <div className="youtube-class-grid">
-            {classes.length ? (
-              classes.map((item) => (
+            {pagedLive.length ? (
+              pagedLive.map((item) => (
                 <LiveClassCard
                   key={item.id}
                   data={{
@@ -12534,6 +12729,7 @@ function UnifiedLivePage({ user }: { user: User | null }) {
               </div>
             )}
           </div>
+          <PaginationControls page={safeLivePage} totalPages={liveTotalPages} totalItems={filteredLive.length} pageSize={livePageSize} onPageChange={setLivePage} label="Live class pagination" />
           {classes
             .filter(
               (item) =>
@@ -12574,7 +12770,6 @@ function UnifiedLivePage({ user }: { user: User | null }) {
     </>
   );
 }
-
 function FullLiveClassPage({ user }: { user: User | null }) {
   const { liveClassId } = useParams();
   const navigate = useNavigate();
