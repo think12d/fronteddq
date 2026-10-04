@@ -11267,3 +11267,46 @@ textarea { min-height: 108px; }
     scroll-behavior: auto !important;
   }
 }
+
+/* =========================================================
+   PREMIUM SEARCH ICON
+   ========================================================= */
+
+.material-library .admin-toolbar-search {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.material-library .admin-toolbar-search > svg {
+  width: 17px !important;
+  height: 17px !important;
+  min-width: 17px !important;
+  margin: 0 0 0 14px !important;
+  color: #64748b !important;
+  stroke: #64748b !important;
+  stroke-width: 2 !important;
+  opacity: 1 !important;
+  flex-shrink: 0 !important;
+  pointer-events: none !important;
+  transition:
+    color 0.2s ease,
+    stroke 0.2s ease,
+    transform 0.2s ease !important;
+}
+
+.material-library .admin-toolbar-search:hover > svg {
+  color: #2563eb !important;
+  stroke: #2563eb !important;
+  transform: scale(1.06) !important;
+}
+
+.material-library .admin-toolbar-search:focus-within > svg {
+  color: #2563eb !important;
+  stroke: #2563eb !important;
+  transform: scale(1.08) !important;
+}
+
+.material-library .admin-toolbar-search input {
+  padding-left: 10px !important;
+}
