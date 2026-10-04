@@ -11751,3 +11751,258 @@ textarea { min-height: 108px; }
     width: 100% !important;
   }
 }
+/* =========================================================
+   FINAL FIX — LIVE CLASS SEARCH INPUT
+   Targets ONLY:
+   .admin-toolbar-search input
+   ========================================================= */
+
+.material-library .live-admin-dashboard .admin-toolbar-search {
+  position: relative !important;
+
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+
+  box-sizing: border-box !important;
+
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+
+  height: 48px !important;
+  min-height: 48px !important;
+  max-height: 48px !important;
+
+  padding: 0 !important;
+  margin: 0 !important;
+
+  border: 1px solid #dfe4ea !important;
+  border-radius: 12px !important;
+
+  background: #ffffff !important;
+
+  overflow: hidden !important;
+
+  transform: none !important;
+}
+
+
+/* ---------------------------------------------------------
+   ICON
+   --------------------------------------------------------- */
+
+.material-library .live-admin-dashboard .admin-toolbar-search > svg {
+  position: static !important;
+
+  display: block !important;
+
+  width: 17px !important;
+  min-width: 17px !important;
+  max-width: 17px !important;
+
+  height: 17px !important;
+  min-height: 17px !important;
+  max-height: 17px !important;
+
+  flex: 0 0 17px !important;
+
+  margin: 0 9px 0 15px !important;
+  padding: 0 !important;
+
+  color: #8b95a5 !important;
+  stroke: currentColor !important;
+
+  transform: none !important;
+
+  position: relative !important;
+  top: auto !important;
+  bottom: auto !important;
+
+  pointer-events: none !important;
+}
+
+
+/* ---------------------------------------------------------
+   THE INPUT — COMPLETELY LOCKED
+   --------------------------------------------------------- */
+
+.material-library .live-admin-dashboard .admin-toolbar-search > input {
+  position: static !important;
+
+  display: block !important;
+
+  box-sizing: border-box !important;
+
+  flex: 1 1 auto !important;
+
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: none !important;
+
+  height: 46px !important;
+  min-height: 46px !important;
+  max-height: 46px !important;
+
+  margin: 0 !important;
+
+  padding: 0 14px 0 0 !important;
+
+  border: 0 !important;
+  border-width: 0 !important;
+
+  outline: none !important;
+
+  background: transparent !important;
+
+  color: #1f2937 !important;
+
+  font-family: inherit !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+
+  line-height: 46px !important;
+
+  letter-spacing: normal !important;
+
+  vertical-align: middle !important;
+
+  text-align: left !important;
+
+  appearance: none !important;
+  -webkit-appearance: none !important;
+
+  transform: none !important;
+
+  box-shadow: none !important;
+
+  overflow: hidden !important;
+}
+
+
+/* ---------------------------------------------------------
+   PLACEHOLDER
+   --------------------------------------------------------- */
+
+.material-library .live-admin-dashboard .admin-toolbar-search > input::placeholder {
+  color: #98a2b3 !important;
+
+  opacity: 1 !important;
+
+  font-family: inherit !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+
+  line-height: normal !important;
+}
+
+
+/* ---------------------------------------------------------
+   FOCUS — NO MOVEMENT
+   --------------------------------------------------------- */
+
+.material-library .live-admin-dashboard .admin-toolbar-search:focus-within {
+  border-color: #93c5fd !important;
+
+  box-shadow:
+    0 0 0 3px rgba(37, 99, 235, 0.07) !important;
+
+  transform: none !important;
+}
+
+.material-library .live-admin-dashboard .admin-toolbar-search:focus-within > svg {
+  color: #2563eb !important;
+
+  transform: none !important;
+
+  top: auto !important;
+  bottom: auto !important;
+}
+
+
+/* ---------------------------------------------------------
+   REMOVE POSSIBLE GLOBAL INPUT STYLES
+   --------------------------------------------------------- */
+
+.material-library .live-admin-dashboard .admin-toolbar-search > input:hover,
+.material-library .live-admin-dashboard .admin-toolbar-search > input:focus,
+.material-library .live-admin-dashboard .admin-toolbar-search > input:active {
+  transform: none !important;
+
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+
+  top: auto !important;
+  bottom: auto !important;
+
+  box-shadow: none !important;
+
+  outline: none !important;
+}
+
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 767px) {
+
+  .material-library .live-admin-dashboard .admin-toolbar-search {
+    height: 46px !important;
+    min-height: 46px !important;
+    max-height: 46px !important;
+  }
+
+  .material-library .live-admin-dashboard .admin-toolbar-search > input {
+    height: 44px !important;
+    min-height: 44px !important;
+    max-height: 44px !important;
+
+    line-height: 44px !important;
+
+    font-size: 12px !important;
+  }
+
+  .material-library .live-admin-dashboard .admin-toolbar-search > input::placeholder {
+    font-size: 12px !important;
+  }
+}
+
+
+/* =========================================================
+   VERY SMALL MOBILE
+   ========================================================= */
+
+@media (max-width: 400px) {
+
+  .material-library .live-admin-dashboard .admin-toolbar-search {
+    height: 44px !important;
+    min-height: 44px !important;
+    max-height: 44px !important;
+  }
+
+  .material-library .live-admin-dashboard .admin-toolbar-search > input {
+    height: 42px !important;
+    min-height: 42px !important;
+    max-height: 42px !important;
+
+    line-height: 42px !important;
+
+    padding-right: 10px !important;
+  }
+
+  .material-library .live-admin-dashboard .admin-toolbar-search > svg {
+    width: 16px !important;
+    min-width: 16px !important;
+    max-width: 16px !important;
+
+    height: 16px !important;
+    min-height: 16px !important;
+    max-height: 16px !important;
+
+    flex-basis: 16px !important;
+
+    margin-left: 12px !important;
+    margin-right: 8px !important;
+  }
+}
