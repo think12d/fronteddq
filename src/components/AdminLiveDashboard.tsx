@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Calendar,
   Check,
+  ChevronLeft,
+  ChevronRight,
   CircleAlert,
   Clock,
   ExternalLink,
@@ -13,6 +15,7 @@ import {
   RefreshCw,
   Radio,
   Save,
+  Search,
   Square,
   Trash2,
   Upload,
@@ -38,6 +41,33 @@ function localDateTimeValue(value: string) {
   return local.toISOString().slice(0, 16);
 }
 
+/* ---------- Smart search ---------- */
+
+// "User1", "User 1", "user_1", "USER-1" all become "user1"
+function normalizeSearchText(value: unknown): string {
+  return String(value ?? "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, "");
+}
+
+// Ignores case, spaces and punctuation; multi-word queries match in any order
+function smartMatch(query: string, ...fields: unknown[]): boolean {
+  const raw = query.trim();
+  if (!raw) return true;
+  const compactQuery = normalizeSearchText(raw);
+  if (!compactQuery) return true;
+  const haystack = normalizeSearchText(
+    fields.filter((f) => f !== null && f !== undefined).join(" "),
+  );
+  if (haystack.includes(compactQuery)) return true;
+  const tokens = raw.toLowerCase().split(/\s+/).map(normalizeSearchText).filter(Boolean);
+  return tokens.length > 1 && tokens.every((t) => haystack.includes(t));
+}
+
+const PAGE_SIZE = 6;
+
 export default function AdminLiveDashboard() {
   const notifications = useNotifications();
   const [classes, setClasses] = useState<LiveClass[]>([]);
@@ -49,6 +79,13 @@ export default function AdminLiveDashboard() {
   const [moderationBusyId, setModerationBusyId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editDrafts, setEditDrafts] = useState<Record<number, EditDraft>>({});
+
+  // Search, filters and pagination
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [courseFilter, setCourseFilter] = useState("all");
+  const [recordingFilter, setRecordingFilter] = useState("all");
+  const [page, setPage] = useState(1);
 
   const fetchClasses = useCallback(async () => {
     try {
@@ -63,6 +100,64 @@ export default function AdminLiveDashboard() {
     const interval = window.setInterval(fetchClasses, 6000);
     return () => window.clearInterval(interval);
   }, [fetchClasses]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, statusFilter, courseFilter, recordingFilter]);
+
+  const statusOptions = useMemo(
+    () => Array.from(new Set(classes.map((item) => item.status))).sort(),
+    [classes],
+  );
+
+  const courseOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const item of classes) {
+      map.set(String(item.course_id), item.course_title || `Course #${item.course_id}`);
+    }
+    return Array.from(map.entries());
+  }, [classes]);
+
+  const filteredClasses = useMemo(
+    () =>
+      classes.filter((item) => {
+        const matchesSearch = smartMatch(
+          searchQuery,
+          item.title,
+          item.description,
+          item.course_title,
+          item.course_id,
+          item.status,
+          item.provider === "meet" ? "Google Meet" : "Legacy YouTube",
+          item.recording_status,
+          item.scheduled_at ? new Date(item.scheduled_at).toLocaleString() : "",
+        );
+        const matchesStatus = statusFilter === "all" || item.status === statusFilter;
+        const matchesCourse = courseFilter === "all" || String(item.course_id) === courseFilter;
+        const matchesRecording =
+          recordingFilter === "all" ||
+          (recordingFilter === "completed" && item.recording_status === "COMPLETED") ||
+          (recordingFilter === "pending" && item.recording_status !== "COMPLETED");
+        return matchesSearch && matchesStatus && matchesCourse && matchesRecording;
+      }),
+    [classes, searchQuery, statusFilter, courseFilter, recordingFilter],
+  );
+
+  const totalPages = Math.max(1, Math.ceil(filteredClasses.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageStart = (safePage - 1) * PAGE_SIZE;
+  const pageEnd = Math.min(pageStart + PAGE_SIZE, filteredClasses.length);
+  const pagedClasses = filteredClasses.slice(pageStart, pageEnd);
+
+  const pageNumbers = useMemo(() => {
+    const numbers: (number | "gap-left" | "gap-right")[] = [];
+    for (let n = 1; n <= totalPages; n += 1) {
+      if (n === 1 || n === totalPages || Math.abs(n - safePage) <= 1) numbers.push(n);
+      else if (n === 2) numbers.push("gap-left");
+      else if (n === totalPages - 1) numbers.push("gap-right");
+    }
+    return numbers;
+  }, [totalPages, safePage]);
 
   const clearMessages = () => {
     setError(null);
@@ -268,6 +363,61 @@ export default function AdminLiveDashboard() {
         </div>
       )}
 
+      {!!classes.length && (
+        <div
+          style={{
+            display: "flex",
+            gap: 12,
+            flexWrap: "wrap",
+            alignItems: "center",
+            margin: "16px 0",
+          }}
+        >
+          <div className="admin-toolbar-search" style={{ flex: 1, minWidth: 220 }}>
+            <Search size={16} />
+            <input
+              aria-label="Search live classes"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search title, course, status, date…"
+            />
+          </div>
+          <select
+            aria-label="Status filter"
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value)}
+          >
+            <option value="all">All statuses</option>
+            {statusOptions.map((status) => (
+              <option key={status} value={status}>
+                {status}
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label="Course filter"
+            value={courseFilter}
+            onChange={(event) => setCourseFilter(event.target.value)}
+          >
+            <option value="all">All courses</option>
+            {courseOptions.map(([id, title]) => (
+              <option key={id} value={id}>
+                {title}
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label="Recording filter"
+            value={recordingFilter}
+            onChange={(event) => setRecordingFilter(event.target.value)}
+          >
+            <option value="all">All recordings</option>
+            <option value="completed">Recording saved</option>
+            <option value="pending">No recording yet</option>
+          </select>
+        </div>
+      )}
+
       {!classes.length && (
         <div className="empty-state">
           <Video size={36} className="text-cyan" />
@@ -276,8 +426,16 @@ export default function AdminLiveDashboard() {
         </div>
       )}
 
+      {!!classes.length && !filteredClasses.length && (
+        <div className="empty-state">
+          <Search size={28} />
+          <h3>No classes match your search or filters</h3>
+          <p>Try a different keyword, status, or course.</p>
+        </div>
+      )}
+
       <div className="admin-live-grid">
-        {classes.map((item) => {
+        {pagedClasses.map((item) => {
           const isMeet = item.provider === "meet";
           const isLive = item.status === "LIVE";
           const isStarting = item.status === "STARTING";
@@ -597,6 +755,47 @@ export default function AdminLiveDashboard() {
           );
         })}
       </div>
+
+      {filteredClasses.length > 0 && (
+        <div className="pagination-row" aria-label="Live broadcasts pagination">
+          <button
+            type="button"
+            className="button button-small button-outline"
+            disabled={safePage <= 1}
+            onClick={() => setPage(safePage - 1)}
+          >
+            <ChevronLeft size={14} /> Previous
+          </button>
+          <div className="pagination-pages" aria-live="polite">
+            {pageNumbers.map((item) =>
+              typeof item === "number" ? (
+                <button
+                  key={item}
+                  type="button"
+                  className={`button button-small ${item === safePage ? "button-dark" : "button-outline"}`}
+                  onClick={() => setPage(item)}
+                  aria-current={item === safePage ? "page" : undefined}
+                >
+                  {item}
+                </button>
+              ) : (
+                <span key={item}>…</span>
+              ),
+            )}
+          </div>
+          <button
+            type="button"
+            className="button button-small button-outline"
+            disabled={safePage >= totalPages}
+            onClick={() => setPage(safePage + 1)}
+          >
+            Next <ChevronRight size={14} />
+          </button>
+          <span className="resource-page-status">
+            Showing {pageStart + 1}–{pageEnd} of {filteredClasses.length}
+          </span>
+        </div>
+      )}
     </section>
   );
 }
