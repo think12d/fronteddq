@@ -11310,3 +11310,159 @@ textarea { min-height: 108px; }
 .material-library .admin-toolbar-search input {
   padding-left: 10px !important;
 }
+.material-library .admin-toolbar-search {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  width: 100% !important;
+  min-width: 220px !important;
+  height: 48px !important;
+  box-sizing: border-box !important;
+
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.03) !important;
+
+  overflow: hidden !important;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease,
+    transform 0.2s ease !important;
+}
+
+
+/* Search icon */
+
+.material-library .admin-toolbar-search > svg {
+  width: 17px !important;
+  height: 17px !important;
+  min-width: 17px !important;
+
+  margin-left: 15px !important;
+  margin-right: 9px !important;
+
+  color: #94a3b8 !important;
+  stroke: currentColor !important;
+  stroke-width: 2 !important;
+
+  flex-shrink: 0 !important;
+  pointer-events: none !important;
+
+  transition:
+    color 0.2s ease,
+    transform 0.2s ease !important;
+}
+
+
+/* Input */
+
+.material-library .admin-toolbar-search input {
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 100% !important;
+
+  margin: 0 !important;
+  padding: 0 15px 0 0 !important;
+
+  border: 0 !important;
+  outline: none !important;
+
+  background: transparent !important;
+
+  color: #1e293b !important;
+
+  font-family: inherit !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+
+  box-shadow: none !important;
+}
+
+
+/* Placeholder */
+
+.material-library .admin-toolbar-search input::placeholder {
+  color: #94a3b8 !important;
+  opacity: 1 !important;
+  font-weight: 450 !important;
+}
+
+
+/* Hover */
+
+.material-library .admin-toolbar-search:hover {
+  border-color: #cbd5e1 !important;
+  background: #ffffff !important;
+}
+
+
+/* Focus */
+
+.material-library .admin-toolbar-search:focus-within {
+  border-color: #93c5fd !important;
+
+  background: #ffffff !important;
+
+  box-shadow:
+    0 0 0 3px rgba(37, 99, 235, 0.08),
+    0 4px 12px rgba(15, 23, 42, 0.05) !important;
+
+  transform: translateY(-1px) !important;
+}
+
+.material-library .admin-toolbar-search:focus-within > svg {
+  color: #2563eb !important;
+  transform: scale(1.04) !important;
+}
+
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 767px) {
+
+  .material-library .admin-toolbar-search {
+    height: 46px !important;
+    min-width: 0 !important;
+    border-radius: 11px !important;
+  }
+
+  .material-library .admin-toolbar-search > svg {
+    width: 16px !important;
+    height: 16px !important;
+    min-width: 16px !important;
+    margin-left: 13px !important;
+    margin-right: 8px !important;
+  }
+
+  .material-library .admin-toolbar-search input {
+    font-size: 12px !important;
+    padding-right: 11px !important;
+  }
+}
+
+
+/* =========================================================
+   SMALL PHONES
+   ========================================================= */
+
+@media (max-width: 400px) {
+
+  .material-library .admin-toolbar-search {
+    height: 44px !important;
+  }
+
+  .material-library .admin-toolbar-search > svg {
+    margin-left: 12px !important;
+  }
+
+  .material-library .admin-toolbar-search input::placeholder {
+    font-size: 11px !important;
+  }
+}
